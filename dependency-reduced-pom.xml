@@ -10,7 +10,7 @@
   <groupId>ch.epfl.biop</groupId>
   <artifactId>elastix_registration_server</artifactId>
   <name>Elastix registration server</name>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <description>Server to launch elastix and transformix tasks</description>
   <url>https://github.com/NicoKiaru/elastix_registration_server</url>
   <issueManagement>
@@ -61,7 +61,7 @@
   <scm>
     <connection>scm:git:git://github.com/NicoKiaru/elastix_registration_server</connection>
     <developerConnection>scm:git:git@github.com:NicoKiaru/elastix_registration_server</developerConnection>
-    <tag>elastix_registration_server-0.1.0</tag>
+    <tag>elastix_registration_server-0.1.1</tag>
     <url>https://github.com/NicoKiaru/elastix_registration_server</url>
   </scm>
   <organization>
@@ -168,6 +168,7 @@
     <license.excludes>**/script_templates/**</license.excludes>
     <assertj.version>3.6.2</assertj.version>
     <license.projectName>BIOP Elastix Registration Server</license.projectName>
+    <releaseProfiles>deploy-to-scijava</releaseProfiles>
     <maven.compiler.source>1.8</maven.compiler.source>
     <license.licenseName>bsd_3</license.licenseName>
   </properties>

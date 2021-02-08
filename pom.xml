@@ -180,7 +180,7 @@
         </dependency>
     </dependencies>
 
-    <build>
+    <!--<build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -218,7 +218,6 @@
                             <exclude>*scala*</exclude>
                         </excludes>
                     </artifactSet>
-                    <!-- Additional configuration. -->
                     <relocations>
                         <relocation>
                             <pattern>org.apache.commons.compress</pattern>
@@ -243,6 +242,6 @@
                 </executions>
             </plugin>
         </plugins>
-    </build>
+    </build>-->
 
 </project>
