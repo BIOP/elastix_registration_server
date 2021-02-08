@@ -103,6 +103,8 @@
         <license.organizationName>EPFL, ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE, Switzerland, BioImaging And Optics Platform (BIOP), 2021</license.organizationName>
         <license.copyrightOwners>Nicolas Chiaruttini, EPFL</license.copyrightOwners>
         <license.excludes>**/resources/**</license.excludes>
+        <license.excludes>**/script_templates/**</license.excludes>
+
 
         <jetty.version>9.4.27.v20200227</jetty.version>
         <assertj.version>3.6.2</assertj.version>
