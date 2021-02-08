@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -13,7 +11,7 @@
 
     <groupId>ch.epfl.biop</groupId>
     <artifactId>elastix_registration_server</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
 
     <name>Elastix registration server</name>
     <description>Server to launch elastix and transformix tasks</description>
@@ -80,7 +78,8 @@
         <connection>scm:git:git://github.com/NicoKiaru/elastix_registration_server</connection>
         <developerConnection>scm:git:git@github.com:NicoKiaru/elastix_registration_server</developerConnection>
         <url>https://github.com/NicoKiaru/elastix_registration_server</url>
-    </scm>
+      <tag>elastix_registration_server-0.1.0</tag>
+  </scm>
 
     <issueManagement>
         <system>GitHub Issues</system>
@@ -233,8 +232,7 @@
                         </goals>
                         <configuration>
                             <transformers>
-                                <transformer
-                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>ch.epfl.biop.server.RegistrationServerStarter</mainClass>
                                 </transformer>
                             </transformers>
