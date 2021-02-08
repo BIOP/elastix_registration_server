@@ -10,16 +10,16 @@
   <groupId>ch.epfl.biop</groupId>
   <artifactId>elastix_registration_server</artifactId>
   <name>Elastix registration server</name>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
   <description>Server to launch elastix and transformix tasks</description>
-  <url>https://github.com/NicoKiaru/TODO</url>
+  <url>https://github.com/NicoKiaru/elastix_registration_server</url>
   <issueManagement>
     <system>GitHub Issues</system>
-    <url>https://github.com/TODO</url>
+    <url>https://github.com/NicoKiaru/elastix_registration_server/issues</url>
   </issueManagement>
   <ciManagement>
     <system>Travis CI</system>
-    <url>https://travis-ci.com/TODO</url>
+    <url>https://travis-ci.com/NicoKiaru/elastix_registration_server</url>
   </ciManagement>
   <inceptionYear>2021</inceptionYear>
   <mailingLists>
@@ -59,9 +59,10 @@
     </license>
   </licenses>
   <scm>
-    <connection>scm:git:git://github.com/TODO</connection>
-    <developerConnection>scm:git:git@github.com:TODO</developerConnection>
-    <url>https://github.com/TODO</url>
+    <connection>scm:git:git://github.com/NicoKiaru/elastix_registration_server</connection>
+    <developerConnection>scm:git:git@github.com:NicoKiaru/elastix_registration_server</developerConnection>
+    <tag>elastix_registration_server-0.1.0</tag>
+    <url>https://github.com/NicoKiaru/elastix_registration_server</url>
   </scm>
   <organization>
     <name>BIOP, EPFL</name>
@@ -164,7 +165,7 @@
     <license.organizationName>EPFL, ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE, Switzerland, BioImaging And Optics Platform (BIOP), 2021</license.organizationName>
     <maven.compiler.target>1.8</maven.compiler.target>
     <license.copyrightOwners>Nicolas Chiaruttini, EPFL</license.copyrightOwners>
-    <license.excludes>**/resources/**</license.excludes>
+    <license.excludes>**/script_templates/**</license.excludes>
     <assertj.version>3.6.2</assertj.version>
     <license.projectName>BIOP Elastix Registration Server</license.projectName>
     <maven.compiler.source>1.8</maven.compiler.source>
