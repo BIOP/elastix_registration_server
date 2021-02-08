@@ -1,0 +1,7 @@
+/.idea/
+/target/
+*.iml
+/src/test/resources/tmp/
+/src/test/resources/out/
+*.releaseBackup
+release.properties
