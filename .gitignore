@@ -5,3 +5,4 @@
 /src/test/resources/out/
 *.releaseBackup
 release.properties
+dependency-reduced-pom.xml

@@ -176,6 +176,7 @@ public class ElastixServlet extends HttpServlet{
                     } catch (Exception e) {
                         System.out.println("Error during elastix request");
                         response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
+                        e.printStackTrace();
                     }
                 } else {
                     System.out.println("Job "+currentJobId+" interrupted");

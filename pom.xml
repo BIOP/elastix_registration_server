@@ -181,7 +181,7 @@
     </dependencies>
 
     <!-- UNCOMMENT TO build FAT JAR (convenient for server side ) -->
-    <!--<build>
+    <!-- <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -243,6 +243,6 @@
                 </executions>
             </plugin>
         </plugins>
-    </build>-->
+    </build> -->
 
 </project>
