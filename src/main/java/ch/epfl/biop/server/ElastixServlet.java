@@ -49,6 +49,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipOutputStream;
 
 import static ch.epfl.biop.server.ServletUtils.copyFileToServer;
@@ -81,6 +82,12 @@ public class ElastixServlet extends HttpServlet{
         }
     }
 
+    static AtomicInteger numberOfCurrentTask = new AtomicInteger(0);
+
+    public static int getNumberOfCurrentTasks() {
+        return numberOfCurrentTask.get();
+    }
+
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json");
         response.setStatus(HttpServletResponse.SC_OK);
@@ -104,7 +111,10 @@ public class ElastixServlet extends HttpServlet{
 
         Runnable taskToPerform = () -> {
             try {
+
+
                 System.out.println("----------- ELASTIX JOB " + currentJobId + " START");
+                numberOfCurrentTask.getAndIncrement();
                 ElastixTaskSettings settings = new ElastixTaskSettings();
                 settings.singleThread();
 
@@ -172,17 +182,21 @@ public class ElastixServlet extends HttpServlet{
                         } else {
                             System.out.println("Job "+currentJobId+" interrupted");
                         }
+                        numberOfCurrentTask.decrementAndGet();
 
                     } catch (Exception e) {
+                        numberOfCurrentTask.decrementAndGet();
                         System.out.println("Error during elastix request");
                         response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
                         e.printStackTrace();
                     }
                 } else {
                     System.out.println("Job "+currentJobId+" interrupted");
+                    numberOfCurrentTask.decrementAndGet();
                 }
             } catch (IOException|ServletException  e) {
                 response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
+                numberOfCurrentTask.decrementAndGet();
             }
         };
 

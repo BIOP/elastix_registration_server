@@ -40,6 +40,7 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
+import org.scijava.util.VersionUtils;
 
 import javax.servlet.MultipartConfigElement;
 import java.io.File;
@@ -51,6 +52,8 @@ public class RegistrationServer {
     public RegistrationServer(RegistrationServerConfig config) {
 
         this.config = config;
+
+        System.out.println("--- Initialisation of registration server version "+ VersionUtils.getVersion(RegistrationServer.class));
 
         System.out.println("--- Setting elastix location (warning : global settings) : " + config.elaxtixLocation);
         Elastix.setExePath(new File(config.elaxtixLocation));
@@ -65,7 +68,6 @@ public class RegistrationServer {
         System.out.println("--- Settings servlet request timeout (ms) " + config.requestTimeOutInMs);
         ElastixServlet.timeOut = config.requestTimeOutInMs;
         TransformixServlet.timeOut = config.requestTimeOutInMs;
-
 
         try {
             System.out.print("--- Settings jobs data location for elastix : ");
@@ -83,6 +85,7 @@ public class RegistrationServer {
 
     private Server server;
 
+    final public static String STATUS_PATH = "/";
     final public static String ELASTIX_PATH = "/elastix";
     final public static String TRANSFORMIX_PATH = "/transformix";
 
@@ -108,11 +111,15 @@ public class RegistrationServer {
 
         ServletHolder shElastix = context.addServlet(ElastixServlet.class, ELASTIX_PATH);
         //shElastix.setAsyncSupported(true);
-        shElastix.getRegistration().setMultipartConfig(new MultipartConfigElement("", 1024*1024, 2*1024*1024, 20*1024*1024));
+        shElastix.getRegistration().setMultipartConfig(new MultipartConfigElement("", config.maxFileSize, 2 * config.maxFileSize, 20*1024*1024));
 
         ServletHolder shTransformix = context.addServlet(TransformixServlet.class, TRANSFORMIX_PATH);
         //shTransformix.setAsyncSupported(true);
-        shTransformix.getRegistration().setMultipartConfig(new MultipartConfigElement("", 1024*1024, 2*1024*1024, 20*1024*1024));
+        shTransformix.getRegistration().setMultipartConfig(new MultipartConfigElement("", config.maxFileSize, 2 * config.maxFileSize, 20*1024*1024));
+
+        StatusServlet.setConfiguration(config);
+        ServletHolder shStatus = context.addServlet(StatusServlet.class, STATUS_PATH);
+        shStatus.setAsyncSupported(true);
 
         server.start();
     }

@@ -49,6 +49,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipOutputStream;
 
 import static ch.epfl.biop.server.ServletUtils.copyFileToServer;
@@ -100,6 +101,7 @@ public class TransformixServlet extends HttpServlet {
             try {
                 System.out.println("Job " + currentJobId + " started");
                 System.out.println("----------- STARTING TRANSFORMIX JOB " + currentJobId);
+                numberOfCurrentTask.getAndIncrement();
 
                 TransformixTaskSettings settings = new TransformixTaskSettings();
 
@@ -148,11 +150,13 @@ public class TransformixServlet extends HttpServlet {
                     fileInputStream.close();
                     response.setStatus(Response.SC_OK);
                     async.complete();
+                    numberOfCurrentTask.decrementAndGet();
 
                 } catch (Exception e) {
                     e.printStackTrace();
                     response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
                     async.complete();
+                    numberOfCurrentTask.decrementAndGet();
                 }
 
 
@@ -160,8 +164,15 @@ public class TransformixServlet extends HttpServlet {
                 e.printStackTrace();
                 response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
                 async.complete();
+                numberOfCurrentTask.decrementAndGet();
             }
         }).start();
 
+    }
+
+    static AtomicInteger numberOfCurrentTask = new AtomicInteger(0);
+
+    public static int getNumberOfCurrentTasks() {
+        return numberOfCurrentTask.get();
     }
 }
