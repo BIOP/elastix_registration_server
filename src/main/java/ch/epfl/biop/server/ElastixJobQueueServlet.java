@@ -55,6 +55,10 @@ public class ElastixJobQueueServlet extends HttpServlet {
 
     public static int maxWaitingQueueTimeInS = 120; // 2 min max waiting time, after the jobs are not processed
 
+    public static int estimatedElastixJobProcessingTimeInMs = 3000;
+
+    public static int maxDelayBetweenQueueUpdateRequestInS = 10;
+
     public static Thread cleaner;
 
     static {
@@ -118,7 +122,15 @@ public class ElastixJobQueueServlet extends HttpServlet {
     }
 
     public static void setConfiguration(RegistrationServerConfig config) {
-        // TODO
+        maxWaitingQueueTimeInS = config.maxQueueEstimatedWaitingTimeInS;
+        estimatedElastixJobProcessingTimeInMs = config.elastixTaskEstimatedDurationInMs;
+        maxDelayBetweenQueueUpdateRequestInS = config.maxDelayBetweenQueueUpdateRequestInS;
+    }
+
+    public static int getQueueSize() {
+        synchronized (queue) {
+            return queue.size();
+        }
     }
 
     // Get method not supported
@@ -174,14 +186,20 @@ public class ElastixJobQueueServlet extends HttpServlet {
                 wjob.waitingTimeInMs = 0;
                 wjob.updateTimeTarget = LocalDateTime.now();
             } else {
-                int waitingTimeInMs = (int) ((numberOfTasksWaiting-0.99)*3000);
+                int waitingTimeInMs = (int) ((numberOfTasksWaiting-0.95)*estimatedElastixJobProcessingTimeInMs);
+
+
                 wjob.waitingTimeInMs = waitingTimeInMs;
 
                 if (wjob.waitingTimeInMs/1000>maxWaitingQueueTimeInS) {
                     log.accept("Too many elastix job requests in elastix queue servlet - expected time exceed "+maxWaitingQueueTimeInS+" seconds");
+                    queue.remove(wjob);
                     response.setStatus(503); // Too many requests - server temporarily unavailable
                     return;
                 }
+
+                waitingTimeInMs = Math.min(waitingTimeInMs, maxDelayBetweenQueueUpdateRequestInS*1000);
+
                 log.accept("Update update time");
                 wjob.updateTimeTarget = LocalDateTime.now().plusSeconds((waitingTimeInMs/1000)+1);
 

@@ -42,7 +42,13 @@ public class RegistrationServerConfig {
 
     public int requestTimeOutInMs = 50000;
 
-    public int maxNumberOfSimultaneousRequests = 4;
+    public int elastixTaskEstimatedDurationInMs = 3000;
+
+    public int maxQueueEstimatedWaitingTimeInS = 120;
+
+    public int maxDelayBetweenQueueUpdateRequestInS = 10;
+
+    public int maxNumberOfSimultaneousRequests = 6;
 
     public String jobsDataLocation = "src/test/resources/tmp/";
 

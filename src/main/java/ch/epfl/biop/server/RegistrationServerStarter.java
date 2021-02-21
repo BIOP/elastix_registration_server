@@ -83,7 +83,7 @@ public class RegistrationServerStarter {
             e.printStackTrace();
         }
 
-        StressTest();
+        //StressTest();
     }
 
     public static void StressTest() {

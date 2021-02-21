@@ -26,5 +26,6 @@ public class StatusServlet extends HttpServlet {
         RegistrationServerConfig config = StatusServlet.config;
         int numberOfCurrentElastixTasks = ElastixServlet.getNumberOfCurrentTasks();
         int numberOfCurrentTransformixTasks = TransformixServlet.getNumberOfCurrentTasks();
+        int numberOfElastixTasksEnqueued = ElastixJobQueueServlet.getQueueSize();
     }
 }
