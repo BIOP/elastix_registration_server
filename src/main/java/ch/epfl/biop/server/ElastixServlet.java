@@ -51,12 +51,15 @@ import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.zip.ZipOutputStream;
 
 import static ch.epfl.biop.server.ServletUtils.copyFileToServer;
 import static ch.epfl.biop.utils.ZipDirectory.zipFile;
 
 public class ElastixServlet extends HttpServlet{
+
+    public static Consumer<String> log = (str) -> {};//System.out.println(ElastixServlet.class+":"+str);
 
     public static int maxNumberOfSimultaneousRequests = 1;
 
@@ -102,7 +105,7 @@ public class ElastixServlet extends HttpServlet{
             try {
 
                 if (request.getParameter("id")==null) {
-                    System.out.println("Registration job has no id - this request will not be processed");
+                    log.accept("Registration job has no id - this request will not be processed");
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     return;
                 }
@@ -115,10 +118,7 @@ public class ElastixServlet extends HttpServlet{
                     if (job.isPresent()) {
                         ElastixJobQueueServlet.queueReadyToBeProcessed.remove(job.get());
                     } else {
-                        System.out.println("Job "+currentJobId+" has not been been queued before - this request will not be processed");
-                        //response.setContentType("application/zip");
-                        //response.addHeader("Content-Disposition", "attachment; filename=");
-                        //response.setContentLength(0);
+                        log.accept("Job "+currentJobId+" has not been been queued before - this request will not be processed");
                         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                         return;
                     }
@@ -128,13 +128,13 @@ public class ElastixServlet extends HttpServlet{
                     if (numberOfCurrentTask.get()<maxNumberOfSimultaneousRequests) {
                         numberOfCurrentTask.getAndIncrement();
                     } else {
-                        System.out.println("Too many elastix requests in elastix servlet");
+                        log.accept("Too many elastix requests in elastix servlet");
                         response.setStatus(503); // Too many requests - server temporarily unavailable
                         return;
                     }
                 }
 
-                System.out.println("----------- ELASTIX JOB " + currentJobId + " START");
+                log.accept("----------- ELASTIX JOB " + currentJobId + " START");
 
                 ElastixTaskSettings settings = new ElastixTaskSettings();
                 settings.singleThread();
@@ -202,18 +202,18 @@ public class ElastixServlet extends HttpServlet{
                             response.setContentLength((int) fileResZip.length());
                             response.setStatus(Response.SC_OK);
                         } else {
-                            System.out.println("Job "+currentJobId+" interrupted");
+                            log.accept("Job "+currentJobId+" interrupted");
                         }
                         numberOfCurrentTask.decrementAndGet();
 
                     } catch (Exception e) {
                         numberOfCurrentTask.decrementAndGet();
-                        System.out.println("Error during elastix request");
+                        log.accept("Error during elastix request");
                         response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
                         e.printStackTrace();
                     }
                 } else {
-                    System.out.println("Job "+currentJobId+" interrupted");
+                    log.accept("Job "+currentJobId+" interrupted");
                     numberOfCurrentTask.decrementAndGet();
                 }
             } catch (IOException|ServletException  e) {
@@ -227,13 +227,13 @@ public class ElastixServlet extends HttpServlet{
 
         try {
             future.get(timeOut, TimeUnit.MILLISECONDS);
-            System.out.println("Completed successfully");
+            log.accept("Completed successfully");
         } catch (InterruptedException e) {
             isAlive.set(false);
         } catch (ExecutionException e) {
             isAlive.set(false);
         } catch (TimeoutException e) {
-            System.out.println("Timed out. Cancelling the runnable...");
+            log.accept("Timed out. Cancelling the runnable...");
             isAlive.set(false);
             future.cancel(true);
         }

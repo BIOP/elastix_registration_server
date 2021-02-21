@@ -51,6 +51,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -60,11 +61,14 @@ import static ch.epfl.biop.server.RegistrationServer.ELASTIX_QUEUE_PATH;
 
 public class RemoteElastixTask extends ElastixTask {
 
+    public static Consumer<String> log = (str) -> {};//System.out.println(RemoteElastixTask.class+":"+str);
+
     String serverUrl;
     String serverUrlQueue;
 
     public RemoteElastixTask(String serverUrl) {
         this.serverUrl = serverUrl+ELASTIX_PATH;
+        this.serverUrlQueue = serverUrl+ELASTIX_QUEUE_PATH;
     }
 
     String extraInfo = "";
@@ -86,20 +90,18 @@ public class RemoteElastixTask extends ElastixTask {
         CloseableHttpClient httpclient =
                 HttpClientBuilder
                         .create()
-                        //.setConnectionTimeToLive(timeoutMs, TimeUnit.MILLISECONDS)
                         .setDefaultRequestConfig(config)
                         .setRetryHandler((exception, executionCount, context) -> {
                             if (executionCount > 3) {
-                                System.out.println("Maximum tries reached for client http pool ");
+                                log.accept("Maximum tries reached for client http pool ");
                                 return false;
                             }
                             if (exception instanceof org.apache.http.NoHttpResponseException) {
-                                System.out.println("No response from server on " + executionCount + " call");
+                                log.accept("No response from server on " + executionCount + " call");
                                 return true;
                             }
                             return false;
                         })
-                        //.setConnectionReuseStrategy(new NoConnectionReuseStrategy())
                         .build();
 
         // Queuing job
@@ -112,7 +114,7 @@ public class RemoteElastixTask extends ElastixTask {
             response = httpclient.execute(enqueueJobRequest);
         } catch (ClientProtocolException e) {
             e.printStackTrace();
-            throw new HttpException("["+extraInfo+"] Server queueing registration failed with error message : "+e.getMessage());
+            throw new HttpException("Server queueing registration failed with error message : "+e.getMessage());
         }
 
         if (response.getStatusLine().toString().equals("HTTP/1.1 503 Service Unavailable")) {
@@ -122,7 +124,7 @@ public class RemoteElastixTask extends ElastixTask {
         String enqueueResponse = IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
         response.getEntity().getContent().close(); // necessary ?
 
-        System.out.println("["+extraInfo+"] Enqueue response : "+enqueueResponse);
+        log.accept("Enqueue response : "+enqueueResponse);
 
         ElastixJobQueueServlet.WaitingJob job = new Gson().fromJson(enqueueResponse, ElastixJobQueueServlet.WaitingJob.class);
 
@@ -142,7 +144,7 @@ public class RemoteElastixTask extends ElastixTask {
             enqueueResponse = IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
             response.getEntity().getContent().close(); // necessary ?
 
-            System.out.println("["+extraInfo+"] Enqueue response : "+enqueueResponse);
+            log.accept("Enqueue response : "+enqueueResponse);
             job = new Gson().fromJson(enqueueResponse, ElastixJobQueueServlet.WaitingJob.class);
         }
 
@@ -178,19 +180,19 @@ public class RemoteElastixTask extends ElastixTask {
         HttpEntity entity = builder.build();
         httppost.setEntity(entity);
 
-        System.out.println("["+extraInfo+"] >>> Client sending Registration Request");
+        log.accept(">>> Client sending Registration Request");
 
         try {
             response = httpclient.execute(httppost);
         } catch (ClientProtocolException e) {
             e.printStackTrace();
-            throw new HttpException("["+extraInfo+"] Server registration failed with error message : "+e.getMessage());
+            throw new HttpException("Server registration failed with error message : "+e.getMessage());
         }
-        System.out.println("["+extraInfo+"] >>> Client received response status "+response.getStatusLine());
+        log.accept(">>> Client received response status "+response.getStatusLine());
 
         if (response.getStatusLine().toString().equals("HTTP/1.1 200 OK")) {
 
-            System.out.println("["+extraInfo+"] >>> Client received result of registration request");
+            log.accept(">>> Client received result of registration request");
 
             InputStream is = response.getEntity().getContent();
             File zipAns = new File(settings.outputFolderSupplier.get(), "registration_result.zip");
@@ -205,8 +207,8 @@ public class RemoteElastixTask extends ElastixTask {
             fos.close();
             is.close();
 
-            System.out.println("["+extraInfo+"] >>> Client received all of registration request");
-            System.out.println(settings.outputFolderSupplier.get());
+            log.accept(">>> Client received all of registration request");
+            log.accept(settings.outputFolderSupplier.get());
 
             File destDir = new File(settings.outputFolderSupplier.get());
             ZipInputStream zis = new ZipInputStream(new FileInputStream(zipAns));
@@ -215,13 +217,13 @@ public class RemoteElastixTask extends ElastixTask {
                 File newFile = newFile(destDir, zipEntry);
                 if (zipEntry.isDirectory()) {
                     if (!newFile.isDirectory() && !newFile.mkdirs()) {
-                        throw new IOException("["+extraInfo+"] Failed to create directory " + newFile);
+                        throw new IOException("Failed to create directory " + newFile);
                     }
                 } else {
                     // fix for Windows-created archives
                     File parent = newFile.getParentFile();
                     if (!parent.isDirectory() && !parent.mkdirs()) {
-                        throw new IOException("["+extraInfo+"] Failed to create directory " + parent);
+                        throw new IOException("Failed to create directory " + parent);
                     }
 
                     // write file content
@@ -239,7 +241,7 @@ public class RemoteElastixTask extends ElastixTask {
 
             zipAns.delete();
         } else {
-            throw new HttpException("["+extraInfo+"] Server registration failed with status line : "+response.getStatusLine());
+            throw new HttpException("Server registration failed with status line : "+response.getStatusLine());
         }
 
     }

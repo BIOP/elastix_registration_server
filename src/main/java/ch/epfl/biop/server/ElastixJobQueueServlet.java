@@ -9,6 +9,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -44,6 +45,8 @@ import java.util.stream.Collectors;
 
 public class ElastixJobQueueServlet extends HttpServlet {
 
+    public static Consumer<String> log = (str) -> {};//System.out.println(ElastixServlet.class+":"+str);
+
     final static LinkedList<WaitingJob> queue = new LinkedList();
 
     final static ArrayList<WaitingJob> queueReadyToBeProcessed = new ArrayList();
@@ -70,16 +73,16 @@ public class ElastixJobQueueServlet extends HttpServlet {
                     List<WaitingJob> jobsToRemove = queue.stream()
                          .filter(job -> {
                              if (job.updateTimeTarget!=null) {
-                                 System.out.println("Clean check : "+job.updateTimeTarget);
-                                 System.out.println("Job should be updated before "+job.updateTimeTarget.plusSeconds(cleanupTimeoutInS));
-                                 System.out.println("And it is "+now);
+                                 log.accept("Clean check : "+job.updateTimeTarget);
+                                 log.accept("Job should be updated before "+job.updateTimeTarget.plusSeconds(cleanupTimeoutInS));
+                                 log.accept("And it is "+now);
                                  return job.updateTimeTarget.plusSeconds(cleanupTimeoutInS).isBefore(now);
                              } else return false;
                          })
                             .collect(Collectors.toList());
 
                     if (jobsToRemove.size()>0) {
-                        System.out.println("Number of jobs removed because of timeout : "+jobsToRemove.size());
+                        log.accept("Number of jobs removed because of timeout : "+jobsToRemove.size());
                     }
 
                     queue.removeAll(jobsToRemove);
@@ -103,7 +106,7 @@ public class ElastixJobQueueServlet extends HttpServlet {
                             .collect(Collectors.toList());
 
                     if (jobsToRemove.size()>0) {
-                        System.out.println("(Ready) number jobs removed because of timeout : "+jobsToRemove.size());
+                        log.accept("(Ready) number jobs removed because of timeout : "+jobsToRemove.size());
                     }
 
                     queueReadyToBeProcessed.removeAll(jobsToRemove);
@@ -142,20 +145,19 @@ public class ElastixJobQueueServlet extends HttpServlet {
 
             if (requestId == -1) {
                 // New job
-
-                System.out.println("New job to enqueue:"+requestId);
+                log.accept("New job to enqueue:"+requestId);
                 wjob = new WaitingJob();
                 wjob.jobId = getJobIndex();
                 queue.add(wjob);
             } else {
-                System.out.println("Already existing job :"+requestId);
+                log.accept("Already existing job :"+requestId);
                 // Already existing job
                 // Let's try to get it, if it has not been cleaned
                     Optional<WaitingJob> j = queue.stream().filter(job -> job.jobId == requestId).findFirst();
                     if (j.isPresent()) {
                         wjob = j.get();
                     } else {
-                        System.err.println("Invalid request : job not found, maybe it does not exists or it has been cleaned, or it has already been set as ready to be processed");
+                        log.accept("Invalid request : job not found, maybe it does not exists or it has been cleaned, or it has already been set as ready to be processed");
                         response.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
                         return;
                     }
@@ -176,14 +178,14 @@ public class ElastixJobQueueServlet extends HttpServlet {
                 wjob.waitingTimeInMs = waitingTimeInMs;
 
                 if (wjob.waitingTimeInMs/1000>maxWaitingQueueTimeInS) {
-                    System.err.println("Too many elastix job requests in elastix queue servlet - expected time exceed "+maxWaitingQueueTimeInS+" seconds");
+                    log.accept("Too many elastix job requests in elastix queue servlet - expected time exceed "+maxWaitingQueueTimeInS+" seconds");
                     response.setStatus(503); // Too many requests - server temporarily unavailable
                     return;
                 }
-                System.out.println("Update update time");
+                log.accept("Update update time");
                 wjob.updateTimeTarget = LocalDateTime.now().plusSeconds((waitingTimeInMs/1000)+1);
 
-                System.out.println("Updated update time to "+wjob.updateTimeTarget);
+                log.accept("Updated update time to "+wjob.updateTimeTarget);
             }
 
             response.setContentType("application/json");
