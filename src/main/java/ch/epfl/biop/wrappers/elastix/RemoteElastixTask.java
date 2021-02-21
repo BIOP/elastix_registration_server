@@ -61,7 +61,7 @@ import static ch.epfl.biop.server.RegistrationServer.ELASTIX_QUEUE_PATH;
 
 public class RemoteElastixTask extends ElastixTask {
 
-    public static Consumer<String> log = (str) -> {};//System.out.println(RemoteElastixTask.class+":"+str);
+    public static Consumer<String> log = (str) -> System.out.println(RemoteElastixTask.class+":"+str);
 
     String serverUrl;
     String serverUrlQueue;
@@ -133,7 +133,12 @@ public class RemoteElastixTask extends ElastixTask {
         enqueueJobRequest = new HttpPost(serverUrlQueue+"?id="+job.jobId);
 
         while (job.waitingTimeInMs!=0) {
-            Thread.sleep(job.waitingTimeInMs);
+            try {
+                Thread.sleep(job.waitingTimeInMs);
+            } catch (InterruptedException e) {
+                log.accept("RemoteElastixTask interrupted");
+                throw new InterruptedException("Remote Elastik Task interrupted");
+            }
             try {
                 response = httpclient.execute(enqueueJobRequest);
             } catch (ClientProtocolException e) {

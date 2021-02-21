@@ -1,6 +1,7 @@
 package ch.epfl.biop.server;
 
 import com.google.gson.Gson;
+import org.scijava.util.VersionUtils;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -23,9 +24,13 @@ public class StatusServlet extends HttpServlet {
     }
 
     public static class ServerStatus {
-        RegistrationServerConfig config = StatusServlet.config;
+        String serverVersion = VersionUtils.getVersion(RegistrationServer.class);
+        long currentElastixJobIndex = ElastixJobQueueServlet.jobIndex;
+        long currentTransformixJobIndex = TransformixServlet.jobIndex;
         int numberOfCurrentElastixTasks = ElastixServlet.getNumberOfCurrentTasks();
         int numberOfCurrentTransformixTasks = TransformixServlet.getNumberOfCurrentTasks();
         int numberOfElastixTasksEnqueued = ElastixJobQueueServlet.getQueueSize();
+        int estimatedQueueProcessingTimeInS = ElastixJobQueueServlet.getQueueSize()*StatusServlet.config.elastixTaskEstimatedDurationInMs/1000;
+        RegistrationServerConfig config = StatusServlet.config;
     }
 }

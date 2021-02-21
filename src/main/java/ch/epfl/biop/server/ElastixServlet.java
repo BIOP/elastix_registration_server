@@ -97,8 +97,6 @@ public class ElastixServlet extends HttpServlet{
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) {
 
-        //final long currentJobId = getJobIndex();
-
         final AtomicBoolean isAlive = new AtomicBoolean(true);
 
         Runnable taskToPerform = () -> {
@@ -129,7 +127,7 @@ public class ElastixServlet extends HttpServlet{
                         numberOfCurrentTask.getAndIncrement();
                     } else {
                         log.accept("Too many elastix requests in elastix servlet");
-                        response.setStatus(503); // Too many requests - server temporarily unavailable
+                        response.setStatus(503); // Too many requests - server temporarily unavailable - this should not happen with the queueing system however ...
                         return;
                     }
                 }

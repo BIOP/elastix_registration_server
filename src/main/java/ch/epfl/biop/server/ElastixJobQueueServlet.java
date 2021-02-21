@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 
 public class ElastixJobQueueServlet extends HttpServlet {
 
-    public static Consumer<String> log = (str) -> {};//System.out.println(ElastixServlet.class+":"+str);
+    public static Consumer<String> log = (str) -> System.out.println(ElastixJobQueueServlet.class+":"+str);
 
     final static LinkedList<WaitingJob> queue = new LinkedList();
 
