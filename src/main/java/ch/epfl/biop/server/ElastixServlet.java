@@ -250,6 +250,18 @@ public class ElastixServlet extends HttpServlet{
                                 } else {
                                     // We have some metadata : the user agreed to store data
                                     FileUtils.writeStringToFile(new File(currentElastixJobFolderInputs,"metadata.txt"), taskMetadata, Charset.defaultCharset());
+                                    // Zip result folder and delete original result folder
+
+                                    fos = new FileOutputStream(elastixJobsFolder + "job_"+currentJobId+".zip");
+                                    zipOut = new ZipOutputStream(fos);
+                                    fileToZip = new File(currentElastixJobFolder);
+
+                                    zipFile(fileToZip, fileToZip.getName(), zipOut);
+                                    zipOut.close();
+                                    fos.close();
+
+                                    eraseFolder(currentElastixJobFolder);
+
                                 }
                             }
 
