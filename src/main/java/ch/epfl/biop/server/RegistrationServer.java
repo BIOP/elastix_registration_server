@@ -62,7 +62,7 @@ public class RegistrationServer {
         Transformix.setExePath(new File(config.transformixLocation));
 
         System.out.println("--- Settings initial Job indexes [elastix:" + config.initialElastixJobIndex + "; transformix:" + config.initialTransformixIndex + "]");
-        ElastixServlet.jobIndex = config.initialElastixJobIndex;
+        ElastixJobQueueServlet.jobIndex = config.initialElastixJobIndex;
         TransformixServlet.jobIndex = config.initialTransformixIndex;
 
         System.out.println("--- Settings servlet request timeout (ms) " + config.requestTimeOutInMs);
@@ -92,6 +92,7 @@ public class RegistrationServer {
 
     final public static String STATUS_PATH = "/";
     final public static String ELASTIX_PATH = "/elastix";
+    final public static String ELASTIX_QUEUE_PATH = "/elastix/startjob";
     final public static String TRANSFORMIX_PATH = "/transformix";
 
     final public static int DefaultLocalPort = 8090;
@@ -123,8 +124,10 @@ public class RegistrationServer {
         shTransformix.getRegistration().setMultipartConfig(new MultipartConfigElement("", config.maxFileSize, 2 * config.maxFileSize, 20*1024*1024));
 
         StatusServlet.setConfiguration(config);
-        ServletHolder shStatus = context.addServlet(StatusServlet.class, STATUS_PATH);
-        shStatus.setAsyncSupported(true);
+        context.addServlet(StatusServlet.class, STATUS_PATH);
+
+        ElastixJobQueueServlet.setConfiguration(config);
+        context.addServlet(ElastixJobQueueServlet.class, ELASTIX_QUEUE_PATH);
 
         server.start();
     }

@@ -47,6 +47,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -90,36 +91,45 @@ public class ElastixServlet extends HttpServlet{
         return numberOfCurrentTask.get();
     }
 
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        response.setContentType("application/json");
-        response.setStatus(HttpServletResponse.SC_OK);
-        response.getWriter().println("{ \"status\": \"ok\"}");
-    }
-
-    public static long jobIndex=0;
-
-    static synchronized long getJobIndex() {
-        jobIndex++;
-        return jobIndex;
-    }
-
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws IOException, ServletException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) {
 
-        final long currentJobId = getJobIndex();
+        //final long currentJobId = getJobIndex();
 
         final AtomicBoolean isAlive = new AtomicBoolean(true);
 
         Runnable taskToPerform = () -> {
             try {
 
+                if (request.getParameter("id")==null) {
+                    System.out.println("Registration job has no id - this request will not be processed");
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    return;
+                }
+
+                int currentJobId = Integer.valueOf(request.getParameter("id"));
+
+                synchronized (ElastixJobQueueServlet.queue) {
+                    Optional<ElastixJobQueueServlet.WaitingJob> job = ElastixJobQueueServlet.queueReadyToBeProcessed.stream()
+                            .filter(j -> j.jobId == currentJobId).findFirst();
+                    if (job.isPresent()) {
+                        ElastixJobQueueServlet.queueReadyToBeProcessed.remove(job.get());
+                    } else {
+                        System.out.println("Job "+currentJobId+" has not been been queued before - this request will not be processed");
+                        //response.setContentType("application/zip");
+                        //response.addHeader("Content-Disposition", "attachment; filename=");
+                        //response.setContentLength(0);
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        return;
+                    }
+                }
+
                 synchronized (ElastixServlet.class) {
                     if (numberOfCurrentTask.get()<maxNumberOfSimultaneousRequests) {
                         numberOfCurrentTask.getAndIncrement();
                     } else {
-                        System.out.println("Too many requests");
-                        response.setStatus(429); // Too many requests
+                        System.out.println("Too many elastix requests in elastix servlet");
+                        response.setStatus(503); // Too many requests - server temporarily unavailable
                         return;
                     }
                 }
@@ -128,6 +138,7 @@ public class ElastixServlet extends HttpServlet{
 
                 ElastixTaskSettings settings = new ElastixTaskSettings();
                 settings.singleThread();
+
 
                 String fImagePath = copyFileToServer(elastixJobsFolder, request, FixedImageTag, "fixed_" + currentJobId);
                 settings.fixedImage(() -> fImagePath);
