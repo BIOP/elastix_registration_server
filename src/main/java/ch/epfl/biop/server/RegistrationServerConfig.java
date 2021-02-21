@@ -48,7 +48,7 @@ public class RegistrationServerConfig {
 
     public int maxDelayBetweenQueueUpdateRequestInS = 10;
 
-    public int maxNumberOfSimultaneousRequests = 1;
+    public int maxNumberOfSimultaneousRequests = 4;
 
     public String jobsDataLocation = "src/test/resources/tmp/";
 

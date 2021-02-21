@@ -83,11 +83,11 @@ public class RegistrationServerStarter {
             e.printStackTrace();
         }
 
-        //StressTest();
+        StressTest();
     }
 
     public static void StressTest() {
-        for (int i=0;i<200;i++){
+        for (int i=0;i<1;i++){
             final int iFinal = i;
             new Thread(() -> {
                 try {

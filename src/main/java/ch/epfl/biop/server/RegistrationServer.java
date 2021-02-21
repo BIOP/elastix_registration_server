@@ -116,11 +116,9 @@ public class RegistrationServer {
         server.setHandler(context);
 
         ServletHolder shElastix = context.addServlet(ElastixServlet.class, ELASTIX_PATH);
-        //shElastix.setAsyncSupported(true);
         shElastix.getRegistration().setMultipartConfig(new MultipartConfigElement("", config.maxFileSize, 2 * config.maxFileSize, 20*1024*1024));
 
         ServletHolder shTransformix = context.addServlet(TransformixServlet.class, TRANSFORMIX_PATH);
-        //shTransformix.setAsyncSupported(true);
         shTransformix.getRegistration().setMultipartConfig(new MultipartConfigElement("", config.maxFileSize, 2 * config.maxFileSize, 20*1024*1024));
 
         StatusServlet.setConfiguration(config);

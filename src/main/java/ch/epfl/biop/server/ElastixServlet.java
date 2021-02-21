@@ -35,6 +35,7 @@ package ch.epfl.biop.server;
 import ch.epfl.biop.wrappers.elastix.DefaultElastixTask;
 import ch.epfl.biop.wrappers.elastix.ElastixTask;
 import ch.epfl.biop.wrappers.elastix.ElastixTaskSettings;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Response;
 
@@ -63,6 +64,7 @@ public class ElastixServlet extends HttpServlet{
 
     public static int maxNumberOfSimultaneousRequests = 1;
 
+    final public static String TaskMetadata = "taskMetadata";
     final public static String FixedImageTag = "fixedImage";
     final public static String MovingImageTag = "movingImage";
     final public static String InitialTransformTag = "initialTransform";
@@ -137,17 +139,38 @@ public class ElastixServlet extends HttpServlet{
                 ElastixTaskSettings settings = new ElastixTaskSettings();
                 settings.singleThread();
 
+                // --- Task Info
+                //request.getPart(TaskMetadata).getInputStream();
 
-                String fImagePath = copyFileToServer(elastixJobsFolder, request, FixedImageTag, "fixed_" + currentJobId);
+                if (!new File(elastixJobsFolder, "job_" + currentJobId).exists()) {
+                    Files.createDirectory(Paths.get(elastixJobsFolder, "job_" + currentJobId));
+                }
+
+                String currentElastixJobFolder = Paths.get(elastixJobsFolder, "job_" + currentJobId).toString()+File.separator;
+
+                String currentElastixJobFolderInputs = currentElastixJobFolder+"input"+File.separator;
+
+                String currentElastixJobFolderOutputs = currentElastixJobFolder+"output"+File.separator;
+
+                if (!new File(currentElastixJobFolderInputs).exists()) {
+                    Files.createDirectory(Paths.get(elastixJobsFolder, "job_" + currentJobId, "input"));
+                }
+
+                if (!new File(currentElastixJobFolderOutputs).exists()) {
+                    Files.createDirectory(Paths.get(elastixJobsFolder, "job_" + currentJobId, "output"));
+                }
+
+                String fImagePath = copyFileToServer(currentElastixJobFolderInputs, request, FixedImageTag, "fixed_" + currentJobId);
                 settings.fixedImage(() -> fImagePath);
-                String mImagePath = copyFileToServer(elastixJobsFolder, request, MovingImageTag, "moving_" + currentJobId);
+
+                String mImagePath = copyFileToServer(currentElastixJobFolderInputs, request, MovingImageTag, "moving_" + currentJobId);
                 settings.movingImage(() -> mImagePath);
 
                 // Is there an initial transform file ?
                 Part iniTransformPart = request.getPart(InitialTransformTag);
 
                 if (iniTransformPart != null) {
-                    String iniTransformPath = copyFileToServer(elastixJobsFolder, request, InitialTransformTag, "iniTransform_" + currentJobId);
+                    String iniTransformPath = copyFileToServer(currentElastixJobFolderInputs, request, InitialTransformTag, "iniTransform_" + currentJobId);
                     settings.addInitialTransform(iniTransformPath);
                 }
 
@@ -156,14 +179,11 @@ public class ElastixServlet extends HttpServlet{
                 Integer numberOfTransforms = new Integer(strNTransforms);
 
                 for (int idxTransform = 0; idxTransform < numberOfTransforms; idxTransform++) {
-                    String transformPath = copyFileToServer(elastixJobsFolder, request, TransformParameterTag(idxTransform), "transform_" + currentJobId + "_" + idxTransform);
+                    String transformPath = copyFileToServer(currentElastixJobFolderInputs, request, TransformParameterTag(idxTransform), "transform_" + currentJobId + "_" + idxTransform);
                     settings.addTransform(() -> transformPath);
                 }
 
-                if (!new File(elastixJobsFolder, "job_" + currentJobId).exists()) {
-                    Files.createDirectory(Paths.get(elastixJobsFolder, "job_" + currentJobId));
-                }
-                String outputFolder = elastixJobsFolder + "job_" + currentJobId;
+                String outputFolder = currentElastixJobFolderOutputs;//elastixJobsFolder + "job_" + currentJobId;
                 settings.outFolder(() -> outputFolder);
 
                 ElastixTask elastixTask = new DefaultElastixTask();
@@ -174,7 +194,10 @@ public class ElastixServlet extends HttpServlet{
                         elastixTask.run();
                         if (isAlive.get()) {
                             String sourceFile = outputFolder;
-                            FileOutputStream fos = new FileOutputStream(elastixJobsFolder + "res_" + currentJobId + ".zip");
+
+                            cleanLogFiles(outputFolder);
+
+                            FileOutputStream fos = new FileOutputStream(currentElastixJobFolder + "res_" + currentJobId + ".zip");
                             ZipOutputStream zipOut = new ZipOutputStream(fos);
                             File fileToZip = new File(sourceFile);
 
@@ -182,7 +205,7 @@ public class ElastixServlet extends HttpServlet{
                             zipOut.close();
                             fos.close();
 
-                            File fileResZip = new File(elastixJobsFolder + "res_" + currentJobId + ".zip");
+                            File fileResZip = new File(currentElastixJobFolder + "res_" + currentJobId + ".zip");
 
                             String registrationResultFileName = "registration_result.zip";
 
@@ -199,8 +222,21 @@ public class ElastixServlet extends HttpServlet{
                             response.addHeader("Content-Disposition", "attachment; filename=" + registrationResultFileName);
                             response.setContentLength((int) fileResZip.length());
                             response.setStatus(Response.SC_OK);
+
+                            // Clean Up : let's remove the output folder because it has already been zipped
+
+                            eraseFolder(outputFolder);
+
+                            if (!StatusServlet.config.storeJobsData) {
+                                // Server set to not store anything -> just delete the data
+                                eraseFolder(currentElastixJobFolder);
+                            } else {
+                                // Server can store some user data, if the user agrees
+                            }
+
                         } else {
                             log.accept("Job "+currentJobId+" interrupted");
+                            eraseFolder(currentElastixJobFolder);
                         }
                         numberOfCurrentTask.decrementAndGet();
 
@@ -209,10 +245,12 @@ public class ElastixServlet extends HttpServlet{
                         log.accept("Error during elastix request");
                         response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
                         e.printStackTrace();
+                        eraseFolder(currentElastixJobFolder);
                     }
                 } else {
                     log.accept("Job "+currentJobId+" interrupted");
                     numberOfCurrentTask.decrementAndGet();
+                    eraseFolder(currentElastixJobFolder);
                 }
             } catch (IOException|ServletException  e) {
                 response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
@@ -236,6 +274,23 @@ public class ElastixServlet extends HttpServlet{
             future.cancel(true);
         }
         executor.shutdown();
+    }
+
+    private void cleanLogFiles(String outputFolder) {
+        File[] allContents = new File(outputFolder).listFiles();
+        for (File f : allContents) {
+            if (f.getName().startsWith("elastix")||f.getName().startsWith("IterationInfo")) {
+                f.delete();
+            }
+        }
+    }
+
+    private static void eraseFolder(String currentElastixJobFolder) {
+        try {
+            FileUtils.deleteDirectory(new File(currentElastixJobFolder));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }
