@@ -32,7 +32,10 @@
  */
 package ch.epfl.biop.wrappers.elastix;
 
+import ch.epfl.biop.server.ElastixJobQueueServlet;
 import ch.epfl.biop.server.ElastixServlet;
+import com.google.gson.Gson;
+import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpException;
 import org.apache.http.HttpResponse;
@@ -47,15 +50,18 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static ch.epfl.biop.server.RegistrationServer.ELASTIX_PATH;
+import static ch.epfl.biop.server.RegistrationServer.ELASTIX_QUEUE_PATH;
 
 public class RemoteElastixTask extends ElastixTask {
 
     String serverUrl;
+    String serverUrlQueue;
 
     public RemoteElastixTask(String serverUrl) {
         this.serverUrl = serverUrl+ELASTIX_PATH;
@@ -65,6 +71,7 @@ public class RemoteElastixTask extends ElastixTask {
 
     public RemoteElastixTask(String serverUrl, String extraInfo) {
         this.serverUrl = serverUrl+ELASTIX_PATH;
+        this.serverUrlQueue = serverUrl+ELASTIX_QUEUE_PATH;
         this.extraInfo = extraInfo;
     }
 
@@ -74,7 +81,6 @@ public class RemoteElastixTask extends ElastixTask {
         RequestConfig config = RequestConfig.custom()
                 .setConnectTimeout(timeoutMs)
                 .setConnectionRequestTimeout(timeoutMs)
-
                 .setSocketTimeout(timeoutMs).build();
 
         CloseableHttpClient httpclient =
@@ -96,8 +102,51 @@ public class RemoteElastixTask extends ElastixTask {
                         //.setConnectionReuseStrategy(new NoConnectionReuseStrategy())
                         .build();
 
+        // Queuing job
+        long jobId = 1;
 
-        HttpPost httppost = new HttpPost(serverUrl);
+        HttpPost enqueueJobRequest = new HttpPost(serverUrlQueue+"?id=-1");
+
+        HttpResponse response;
+        try {
+            response = httpclient.execute(enqueueJobRequest);
+        } catch (ClientProtocolException e) {
+            e.printStackTrace();
+            throw new HttpException("["+extraInfo+"] Server queueing registration failed with error message : "+e.getMessage());
+        }
+
+        if (response.getStatusLine().toString().equals("HTTP/1.1 503 Service Unavailable")) {
+            throw new HttpException("Registration server overload.");
+        }
+
+        String enqueueResponse = IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
+        response.getEntity().getContent().close(); // necessary ?
+
+        System.out.println("["+extraInfo+"] Enqueue response : "+enqueueResponse);
+
+        ElastixJobQueueServlet.WaitingJob job = new Gson().fromJson(enqueueResponse, ElastixJobQueueServlet.WaitingJob.class);
+
+        jobId = job.jobId;
+
+        enqueueJobRequest = new HttpPost(serverUrlQueue+"?id="+job.jobId);
+
+        while (job.waitingTimeInMs!=0) {
+            Thread.sleep(job.waitingTimeInMs);
+            try {
+                response = httpclient.execute(enqueueJobRequest);
+            } catch (ClientProtocolException e) {
+                e.printStackTrace();
+                throw new HttpException("["+extraInfo+"] Server queueing registration failed with error message : "+e.getMessage());
+            }
+
+            enqueueResponse = IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
+            response.getEntity().getContent().close(); // necessary ?
+
+            System.out.println("["+extraInfo+"] Enqueue response : "+enqueueResponse);
+            job = new Gson().fromJson(enqueueResponse, ElastixJobQueueServlet.WaitingJob.class);
+        }
+
+        HttpPost httppost = new HttpPost(serverUrl+"?id="+jobId);
 
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
         builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
@@ -131,7 +180,6 @@ public class RemoteElastixTask extends ElastixTask {
 
         System.out.println("["+extraInfo+"] >>> Client sending Registration Request");
 
-        HttpResponse response;
         try {
             response = httpclient.execute(httppost);
         } catch (ClientProtocolException e) {

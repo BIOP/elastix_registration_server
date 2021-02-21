@@ -57,21 +57,29 @@ public class ElastixJobQueueServlet extends HttpServlet {
     static {
         cleaner = new Thread(() -> {
             while (true) {
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
                 synchronized (queue) {
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
 
                     LocalDateTime now = LocalDateTime.now();
 
                     List<WaitingJob> jobsToRemove = queue.stream()
-                         .filter(job -> job.updateTimeTarget.plusSeconds(cleanupTimeoutInS).isAfter(now))
+                         .filter(job -> {
+                             if (job.updateTimeTarget!=null) {
+                                 System.out.println("Clean check : "+job.updateTimeTarget);
+                                 System.out.println("Job should be updated before "+job.updateTimeTarget.plusSeconds(cleanupTimeoutInS));
+                                 System.out.println("And it is "+now);
+                                 return job.updateTimeTarget.plusSeconds(cleanupTimeoutInS).isBefore(now);
+                             } else return false;
+                         })
                             .collect(Collectors.toList());
 
                     if (jobsToRemove.size()>0) {
-                        System.out.println("Jobs removed because of timeout : "+jobsToRemove.size());
+                        System.out.println("Number of jobs removed because of timeout : "+jobsToRemove.size());
                     }
 
                     queue.removeAll(jobsToRemove);
@@ -87,11 +95,15 @@ public class ElastixJobQueueServlet extends HttpServlet {
                     LocalDateTime now = LocalDateTime.now();
 
                     List<WaitingJob> jobsToRemove = queueReadyToBeProcessed.stream()
-                            .filter(job -> job.updateTimeTarget.plusSeconds(cleanupTimeoutInS).isAfter(now))
+                            .filter(job -> {
+                                if (job.updateTimeTarget!=null) {
+                                return job.updateTimeTarget.plusSeconds(cleanupTimeoutInS).isAfter(now);
+                                } else return false;
+                            })
                             .collect(Collectors.toList());
 
                     if (jobsToRemove.size()>0) {
-                        System.out.println("(Ready) jobs removed because of timeout : "+jobsToRemove.size());
+                        System.out.println("(Ready) number jobs removed because of timeout : "+jobsToRemove.size());
                     }
 
                     queueReadyToBeProcessed.removeAll(jobsToRemove);
@@ -122,36 +134,37 @@ public class ElastixJobQueueServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         // Is it a new job ( = id = -1  ? ) or an old job asking for an update ?
 
-        long requestId = Long.valueOf(request.getParameter("id"));
-
-        WaitingJob wjob;
-
-        if (requestId == -1) {
-            // New job
-            final long currentJobId = getJobIndex();
-            wjob = new WaitingJob();
-            wjob.jobId = getJobIndex();
-            queue.add(wjob);
-        } else {
-            // Already existing job
-            // Let's try to get it, if it has not been cleaned
-            synchronized (queue) {
-                Optional<WaitingJob> j = queue.stream().filter(job -> job.jobId == requestId).findFirst();
-                if (j.isPresent()) {
-                    wjob = j.get();
-                } else {
-                    System.err.println("Invalid request : job not found, maybe it does not exists or it has been cleaned, or it has already been set as ready to be processed");
-                    response.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
-                    return;
-                }
-            }
-        }
-
-        // Ok now let's estimate the time needed before the request can be started
-
         synchronized (queue) {
+
+            long requestId = Long.valueOf(request.getParameter("id"));
+
+            WaitingJob wjob;
+
+            if (requestId == -1) {
+                // New job
+
+                System.out.println("New job to enqueue:"+requestId);
+                wjob = new WaitingJob();
+                wjob.jobId = getJobIndex();
+                queue.add(wjob);
+            } else {
+                System.out.println("Already existing job :"+requestId);
+                // Already existing job
+                // Let's try to get it, if it has not been cleaned
+                    Optional<WaitingJob> j = queue.stream().filter(job -> job.jobId == requestId).findFirst();
+                    if (j.isPresent()) {
+                        wjob = j.get();
+                    } else {
+                        System.err.println("Invalid request : job not found, maybe it does not exists or it has been cleaned, or it has already been set as ready to be processed");
+                        response.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
+                        return;
+                    }
+            }
+
+            // Ok now let's estimate the time needed before the request can be started
+
             int numberOfTasksWaiting = ElastixServlet.getNumberOfCurrentTasks() - ElastixServlet.maxNumberOfSimultaneousRequests
-                    + queueReadyToBeProcessed.size() + queue.indexOf(wjob);
+                    + queueReadyToBeProcessed.size() + queue.indexOf(wjob) + 1;
 
             if (numberOfTasksWaiting<=0) {
                 queue.remove(wjob);
@@ -167,20 +180,22 @@ public class ElastixJobQueueServlet extends HttpServlet {
                     response.setStatus(503); // Too many requests - server temporarily unavailable
                     return;
                 }
-
+                System.out.println("Update update time");
                 wjob.updateTimeTarget = LocalDateTime.now().plusSeconds((waitingTimeInMs/1000)+1);
-            }
-        }
 
-        response.setContentType("application/json");
-        response.getWriter().println(new Gson().toJson(wjob));
-        response.setStatus(HttpServletResponse.SC_OK);
+                System.out.println("Updated update time to "+wjob.updateTimeTarget);
+            }
+
+            response.setContentType("application/json");
+            response.getWriter().println(new Gson().toJson(wjob));
+            response.setStatus(HttpServletResponse.SC_OK);
+        }
 
     }
 
     public static class WaitingJob {
-        long jobId;
-        int waitingTimeInMs;
-        transient LocalDateTime updateTimeTarget;
+        public long jobId;
+        public int waitingTimeInMs;
+        volatile transient LocalDateTime updateTimeTarget;
     }
 }

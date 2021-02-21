@@ -87,7 +87,7 @@ public class RegistrationServerStarter {
     }
 
     public static void StressTest() {
-        for (int i=0;i<10;i++){
+        for (int i=0;i<200;i++){
             final int iFinal = i;
             new Thread(() -> {
                 try {
