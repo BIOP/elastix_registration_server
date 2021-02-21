@@ -45,6 +45,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -139,8 +140,19 @@ public class ElastixServlet extends HttpServlet{
                 ElastixTaskSettings settings = new ElastixTaskSettings();
                 settings.singleThread();
 
+                String taskMetadata = null;
+
                 // --- Task Info
-                //request.getPart(TaskMetadata).getInputStream();
+                if (request.getPart(TaskMetadata)!=null) {
+                    InputStream taskInfoStream = request.getPart(TaskMetadata).getInputStream();
+                    taskMetadata = IOUtils.toString(taskInfoStream, StandardCharsets.UTF_8);
+                }
+
+                if (taskMetadata!=null) {
+                    System.out.println("Task Metadata = "+taskMetadata);
+                } else {
+                    System.out.println("No task metadata");
+                }
 
                 if (!new File(elastixJobsFolder, "job_" + currentJobId).exists()) {
                     Files.createDirectory(Paths.get(elastixJobsFolder, "job_" + currentJobId));
@@ -160,17 +172,17 @@ public class ElastixServlet extends HttpServlet{
                     Files.createDirectory(Paths.get(elastixJobsFolder, "job_" + currentJobId, "output"));
                 }
 
-                String fImagePath = copyFileToServer(currentElastixJobFolderInputs, request, FixedImageTag, "fixed_" + currentJobId);
+                String fImagePath = copyFileToServer(currentElastixJobFolderInputs, request, FixedImageTag, "fixed" );
                 settings.fixedImage(() -> fImagePath);
 
-                String mImagePath = copyFileToServer(currentElastixJobFolderInputs, request, MovingImageTag, "moving_" + currentJobId);
+                String mImagePath = copyFileToServer(currentElastixJobFolderInputs, request, MovingImageTag, "moving" );
                 settings.movingImage(() -> mImagePath);
 
                 // Is there an initial transform file ?
                 Part iniTransformPart = request.getPart(InitialTransformTag);
 
                 if (iniTransformPart != null) {
-                    String iniTransformPath = copyFileToServer(currentElastixJobFolderInputs, request, InitialTransformTag, "iniTransform_" + currentJobId);
+                    String iniTransformPath = copyFileToServer(currentElastixJobFolderInputs, request, InitialTransformTag, "iniTransform" );
                     settings.addInitialTransform(iniTransformPath);
                 }
 
@@ -179,7 +191,7 @@ public class ElastixServlet extends HttpServlet{
                 Integer numberOfTransforms = new Integer(strNTransforms);
 
                 for (int idxTransform = 0; idxTransform < numberOfTransforms; idxTransform++) {
-                    String transformPath = copyFileToServer(currentElastixJobFolderInputs, request, TransformParameterTag(idxTransform), "transform_" + currentJobId + "_" + idxTransform);
+                    String transformPath = copyFileToServer(currentElastixJobFolderInputs, request, TransformParameterTag(idxTransform), "transform_" + idxTransform);
                     settings.addTransform(() -> transformPath);
                 }
 
@@ -197,7 +209,7 @@ public class ElastixServlet extends HttpServlet{
 
                             cleanLogFiles(outputFolder);
 
-                            FileOutputStream fos = new FileOutputStream(currentElastixJobFolder + "res_" + currentJobId + ".zip");
+                            FileOutputStream fos = new FileOutputStream(currentElastixJobFolder + "res.zip");
                             ZipOutputStream zipOut = new ZipOutputStream(fos);
                             File fileToZip = new File(sourceFile);
 
@@ -205,7 +217,7 @@ public class ElastixServlet extends HttpServlet{
                             zipOut.close();
                             fos.close();
 
-                            File fileResZip = new File(currentElastixJobFolder + "res_" + currentJobId + ".zip");
+                            File fileResZip = new File(currentElastixJobFolder + "res.zip");
 
                             String registrationResultFileName = "registration_result.zip";
 
@@ -232,6 +244,13 @@ public class ElastixServlet extends HttpServlet{
                                 eraseFolder(currentElastixJobFolder);
                             } else {
                                 // Server can store some user data, if the user agrees
+                                if (taskMetadata == null) {
+                                    // No metadata = no user agreement to store job, erase data
+                                    eraseFolder(currentElastixJobFolder);
+                                } else {
+                                    // We have some metadata : the user agreed to store data
+                                    FileUtils.writeStringToFile(new File(currentElastixJobFolderInputs,"metadata.txt"), taskMetadata, Charset.defaultCharset());
+                                }
                             }
 
                         } else {

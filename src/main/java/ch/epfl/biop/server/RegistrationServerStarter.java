@@ -113,7 +113,7 @@ public class RegistrationServerStarter {
                 .addTransform(() -> RegisterHelper.getFileFromRegistrationParameters(rp))
                 .outFolder(()-> "src/test/resources/out/"+idx+"/");
 
-        ElastixTask remoteTask = new RemoteElastixTask("http://localhost:8090", ""+idx);
+        ElastixTask remoteTask = new RemoteElastixTask("http://localhost:8090");
         remoteTask.setSettings(settings);
         remoteTask.run();
     }

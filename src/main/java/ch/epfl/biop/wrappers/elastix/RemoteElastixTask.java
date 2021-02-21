@@ -71,14 +71,6 @@ public class RemoteElastixTask extends ElastixTask {
         this.serverUrlQueue = serverUrl+ELASTIX_QUEUE_PATH;
     }
 
-    String extraInfo = "";
-
-    public RemoteElastixTask(String serverUrl, String extraInfo) {
-        this.serverUrl = serverUrl+ELASTIX_PATH;
-        this.serverUrlQueue = serverUrl+ELASTIX_QUEUE_PATH;
-        this.extraInfo = extraInfo;
-    }
-
     public void run() throws Exception {
 
         int timeoutMs = 50000;
@@ -143,7 +135,7 @@ public class RemoteElastixTask extends ElastixTask {
                 response = httpclient.execute(enqueueJobRequest);
             } catch (ClientProtocolException e) {
                 e.printStackTrace();
-                throw new HttpException("["+extraInfo+"] Server queueing registration failed with error message : "+e.getMessage());
+                throw new HttpException(" Server queueing registration failed with error message : "+e.getMessage());
             }
 
             enqueueResponse = IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
@@ -157,6 +149,11 @@ public class RemoteElastixTask extends ElastixTask {
 
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
         builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
+
+        if ((settings.taskInfo!=null)&&(!settings.taskInfo.trim().equals(""))) {
+            // There is some data -> the job will be potentially be saved on the server side
+            builder.addTextBody(ElastixServlet.TaskMetadata, settings.taskInfo, ContentType.DEFAULT_TEXT);
+        }
 
         File fixedImageFile = new File(settings.fixedImagePathSupplier.get());
         FileBody fixedImageBody = new FileBody(fixedImageFile, ContentType.DEFAULT_BINARY);
