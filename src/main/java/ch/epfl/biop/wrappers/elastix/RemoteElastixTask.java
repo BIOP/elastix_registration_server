@@ -36,6 +36,7 @@ import ch.epfl.biop.server.ElastixServlet;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpException;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -133,9 +134,9 @@ public class RemoteElastixTask extends ElastixTask {
         HttpResponse response;
         try {
             response = httpclient.execute(httppost);
-        } catch (Exception e) {
+        } catch (ClientProtocolException e) {
             e.printStackTrace();
-            throw new HttpException("["+extraInfo+"] Server registration failed with error message : ");
+            throw new HttpException("["+extraInfo+"] Server registration failed with error message : "+e.getMessage());
         }
         System.out.println("["+extraInfo+"] >>> Client received response status "+response.getStatusLine());
 

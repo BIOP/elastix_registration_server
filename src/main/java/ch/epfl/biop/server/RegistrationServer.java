@@ -69,6 +69,11 @@ public class RegistrationServer {
         ElastixServlet.timeOut = config.requestTimeOutInMs;
         TransformixServlet.timeOut = config.requestTimeOutInMs;
 
+
+        System.out.println("--- Settings elastix servlet max number of simultaneous requests " + config.maxNumberOfSimultaneousRequests);
+        ElastixServlet.maxNumberOfSimultaneousRequests = config.maxNumberOfSimultaneousRequests;
+        //TransformixServlet.maxNumberOfSimultaneousRequests = config.maxNumberOfSimultaneousRequests;
+
         try {
             System.out.print("--- Settings jobs data location for elastix : ");
             ElastixServlet.setJobsDataLocation(config.jobsDataLocation);
@@ -97,7 +102,7 @@ public class RegistrationServer {
         context.setContextPath("/");
         context.setAttribute("javax.servlet.context.tempdir",new File("tmp"));
 
-        int maxThreads = Math.max(4,2+config.maxNumberOfSimultaneousRequests);
+        int maxThreads = Math.max(4,4+config.maxNumberOfSimultaneousRequests);
         int minThreads = 1;
         int idleTimeout = 120;
 

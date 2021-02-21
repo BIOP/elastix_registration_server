@@ -57,6 +57,8 @@ import static ch.epfl.biop.utils.ZipDirectory.zipFile;
 
 public class ElastixServlet extends HttpServlet{
 
+    public static int maxNumberOfSimultaneousRequests = 1;
+
     final public static String FixedImageTag = "fixedImage";
     final public static String MovingImageTag = "movingImage";
     final public static String InitialTransformTag = "initialTransform";
@@ -112,9 +114,18 @@ public class ElastixServlet extends HttpServlet{
         Runnable taskToPerform = () -> {
             try {
 
+                synchronized (ElastixServlet.class) {
+                    if (numberOfCurrentTask.get()<maxNumberOfSimultaneousRequests) {
+                        numberOfCurrentTask.getAndIncrement();
+                    } else {
+                        System.out.println("Too many requests");
+                        response.setStatus(429); // Too many requests
+                        return;
+                    }
+                }
 
                 System.out.println("----------- ELASTIX JOB " + currentJobId + " START");
-                numberOfCurrentTask.getAndIncrement();
+
                 ElastixTaskSettings settings = new ElastixTaskSettings();
                 settings.singleThread();
 
