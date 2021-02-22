@@ -9,6 +9,19 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+/**
+ * Status servlet: easily called by
+ *
+ * http://servername/
+ *
+ * Returned a json file representing the server status:
+ *  - its configuration
+ *  - how many jobs have processed, how many are processed, how many are on the queue
+ *
+ *  see {@link StatusServlet.ServerStatus} for all info being sent
+ *
+ */
+
 public class StatusServlet extends HttpServlet {
 
     public static void setConfiguration(RegistrationServerConfig config) {
@@ -24,13 +37,21 @@ public class StatusServlet extends HttpServlet {
     }
 
     public static class ServerStatus {
-        String serverVersion = VersionUtils.getVersion(RegistrationServer.class);
+
+        String serverVersion = VersionUtils.getVersion(RegistrationServer.class); // Returns the version declared in the pom file
+
         long currentElastixJobIndex = ElastixJobQueueServlet.jobIndex;
+
         long currentTransformixJobIndex = TransformixServlet.jobIndex;
+
         int numberOfCurrentElastixTasks = ElastixServlet.getNumberOfCurrentTasks();
+
         int numberOfCurrentTransformixTasks = TransformixServlet.getNumberOfCurrentTasks();
+
         int numberOfElastixTasksEnqueued = ElastixJobQueueServlet.getQueueSize();
+
         int estimatedQueueProcessingTimeInS = ElastixJobQueueServlet.getQueueSize()*StatusServlet.config.elastixTaskEstimatedDurationInMs/1000;
+
         RegistrationServerConfig config = StatusServlet.config;
     }
 }

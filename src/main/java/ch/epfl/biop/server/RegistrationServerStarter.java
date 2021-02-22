@@ -43,10 +43,12 @@ import java.nio.file.Paths;
 
 /** Command to start the server :
 *
-* java -Xmx1g -jar biop_registration_server-x.y.z.jar
+* java -Xmx1g -jar biop_registration_server-x.y.z.jar config.json (optional)
 * of course replace x, y, z by the current version (and don't forget -SNAPSHOT in the version if necessary for testing)
-* A json config file placed in the same folder as the jar can be used to configure the server
-* To see the format, just launch once the server and copy the model displayed as an output in the console
+*
+* A json config file as an argument placed can be used to configure the server
+* To see the format of the config file,
+ * just launch once the server without argument, copy and modify the model displayed as an output in the console
 *
 */
 
@@ -83,7 +85,7 @@ public class RegistrationServerStarter {
             e.printStackTrace();
         }
 
-        //StressTest();
+        //StressTest(); // Uncomment for testing
     }
 
     public static void StressTest() {

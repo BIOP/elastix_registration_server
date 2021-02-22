@@ -39,15 +39,18 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public class ServletUtils {
 
     static String copyFileToServer(String tempFileFolder, HttpServletRequest request, String tag, String fileNameOut) throws IOException, ServletException {
-        String pathFileOut = null;
+        String pathFileOut;
         Part part = request.getPart(tag);
         String fileNameIn = part.getSubmittedFileName();
         String fileExtension = FilenameUtils.getExtension(fileNameIn);
@@ -64,5 +67,27 @@ public class ServletUtils {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void zipFile(File fileToZip, String fileName, ZipOutputStream zipOut) throws IOException {
+        if (fileToZip.isHidden()) {
+            return;
+        }
+        if (fileToZip.isDirectory()) {
+            File[] children = fileToZip.listFiles();
+            for (File childFile : children) {
+                zipFile(childFile, childFile.getName(), zipOut);
+            }
+            return;
+        }
+        FileInputStream fis = new FileInputStream(fileToZip);
+        ZipEntry zipEntry = new ZipEntry(fileName);
+        zipOut.putNextEntry(zipEntry);
+        byte[] bytes = new byte[1024];
+        int length;
+        while ((length = fis.read(bytes)) >= 0) {
+            zipOut.write(bytes, 0, length);
+        }
+        fis.close();
     }
 }

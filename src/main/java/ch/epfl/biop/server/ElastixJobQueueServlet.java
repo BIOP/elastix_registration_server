@@ -2,7 +2,6 @@ package ch.epfl.biop.server;
 
 import com.google.gson.Gson;
 
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -67,7 +66,7 @@ public class ElastixJobQueueServlet extends HttpServlet {
      * Queue containing the job that are expected to be processed in the future
      * this object also served as the main synchronization lock to avoid concurrency issues
      */
-    final static LinkedList<WaitingJob> queue = new LinkedList();
+    final static LinkedList<WaitingJob> queue = new LinkedList<>();
 
     /**
      * Queue containing the jobs that are ready to be processed (waiting time sent to the client = 0)
@@ -75,7 +74,7 @@ public class ElastixJobQueueServlet extends HttpServlet {
      * This queue will be emptied by the {@link ElastixServlet} when the client
      * ask to perform the registration
      */
-    final static ArrayList<WaitingJob> queueReadyToBeProcessed = new ArrayList();
+    final static ArrayList<WaitingJob> queueReadyToBeProcessed = new ArrayList<>();
 
     /**
      * If the client forget to ask for the queue state update for more than this value
@@ -188,7 +187,8 @@ public class ElastixJobQueueServlet extends HttpServlet {
     }
 
     // Get method not supported
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
     }
 
@@ -205,7 +205,7 @@ public class ElastixJobQueueServlet extends HttpServlet {
 
         synchronized (queue) { // only one request processed at a time - this should be fine because it's fast - also avoids cleaning of the queue while processing the request
 
-            long requestId = Long.valueOf(request.getParameter("id"));
+            long requestId = Long.parseLong(request.getParameter("id"));
 
             // First : create or retrieve the referenced waiting job
             WaitingJob wjob;

@@ -57,7 +57,6 @@ import java.util.function.Consumer;
 import java.util.zip.ZipOutputStream;
 
 import static ch.epfl.biop.server.ServletUtils.copyFileToServer;
-import static ch.epfl.biop.utils.ZipDirectory.zipFile;
 
 /**
  * Servlet which processes an Elastix task.
@@ -118,7 +117,7 @@ public class ElastixServlet extends HttpServlet{
      * @param index of the (potentially) multiple transformation file
      * @return the tag to identify the http tag
      */
-    final static public String TransformParameterTag(int index) {
+    static public String TransformParameterTag(int index) {
         return "transformParam_"+index;
     }
 
@@ -148,6 +147,12 @@ public class ElastixServlet extends HttpServlet{
         return numberOfCurrentTask.get();
     }
 
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        response.setContentType("application/json");
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.getWriter().println("{ \"status\": \"ok\"}");
+    }
+
     /**
      * Where the elastix registration happens
      * @param request client
@@ -173,7 +178,7 @@ public class ElastixServlet extends HttpServlet{
                     return;
                 }
 
-                int currentJobId = Integer.valueOf(request.getParameter("id"));
+                int currentJobId = Integer.parseInt(request.getParameter("id"));
 
                 synchronized (ElastixJobQueueServlet.queue) {
                     Optional<ElastixJobQueueServlet.WaitingJob> job = ElastixJobQueueServlet.queueReadyToBeProcessed.stream()
@@ -190,8 +195,7 @@ public class ElastixServlet extends HttpServlet{
                 }
 
                 synchronized (ElastixServlet.class) {
-                    if (numberOfCurrentTask.get()<maxNumberOfSimultaneousRequests) {
-                    } else {
+                    if (numberOfCurrentTask.get()>maxNumberOfSimultaneousRequests) {
                         log.accept("Too many elastix requests in elastix servlet");
                         response.setStatus(503); // Too many requests - server temporarily unavailable - this should not happen with the queueing system however ...
                         numberOfCurrentTask.decrementAndGet();
@@ -250,7 +254,7 @@ public class ElastixServlet extends HttpServlet{
                 // Retrieves the number of transforms in the request - get their number first
                 Part numberOfTransformsPart = request.getPart(NumberOfTransformsTag);
                 String strNTransforms = IOUtils.toString(numberOfTransformsPart.getInputStream(), StandardCharsets.UTF_8.name());
-                Integer numberOfTransforms = new Integer(strNTransforms);
+                int numberOfTransforms = new Integer(strNTransforms);
 
                 // Gets all successive transforms and copy to server hdd
                 for (int idxTransform = 0; idxTransform < numberOfTransforms; idxTransform++) {
@@ -282,7 +286,7 @@ public class ElastixServlet extends HttpServlet{
                             ZipOutputStream zipOut = new ZipOutputStream(fos);
                             File fileToZip = new File(sourceFile);
 
-                            zipFile(fileToZip, fileToZip.getName(), zipOut);
+                            ServletUtils.zipFile(fileToZip, fileToZip.getName(), zipOut);
                             zipOut.close();
                             fos.close();
 
@@ -326,7 +330,7 @@ public class ElastixServlet extends HttpServlet{
                                     zipOut = new ZipOutputStream(fos);
                                     fileToZip = new File(currentElastixJobFolder);
 
-                                    zipFile(fileToZip, fileToZip.getName(), zipOut);
+                                    ServletUtils.zipFile(fileToZip, fileToZip.getName(), zipOut);
                                     zipOut.close();
                                     fos.close();
 
@@ -367,9 +371,7 @@ public class ElastixServlet extends HttpServlet{
         try {
             future.get(timeOut, TimeUnit.MILLISECONDS);
             log.accept("Completed successfully");
-        } catch (InterruptedException e) {
-            isAlive.set(false);
-        } catch (ExecutionException e) {
+        } catch (InterruptedException | ExecutionException e) {
             isAlive.set(false);
         } catch (TimeoutException e) {
             log.accept("Timed out. Cancelling the runnable...");
@@ -381,9 +383,11 @@ public class ElastixServlet extends HttpServlet{
 
     private void cleanLogFiles(String outputFolder) {
         File[] allContents = new File(outputFolder).listFiles();
-        for (File f : allContents) {
-            if (f.getName().startsWith("elastix")||f.getName().startsWith("IterationInfo")) {
-                f.delete();
+        if (allContents!=null) {
+            for (File f : allContents) {
+                if (f.getName().startsWith("elastix") || f.getName().startsWith("IterationInfo")) {
+                    f.delete();
+                }
             }
         }
     }

@@ -44,6 +44,16 @@ import org.scijava.util.VersionUtils;
 import javax.servlet.MultipartConfigElement;
 import java.io.File;
 
+/**
+ * Creates the server by creating all required Servlet:
+ * {@link ElastixJobQueueServlet} for queueing request
+ * {@link ElastixServlet} for processing elastix requests
+ * {@link TransformixServlet} for processing transformix requests (no queueing needed - that's fast)
+ * {@link StatusServlet} to keep track live of the server status
+ *
+ * Also initializes and sets the configuration to the different servlets
+ *
+ */
 public class RegistrationServer {
 
     RegistrationServerConfig config;
