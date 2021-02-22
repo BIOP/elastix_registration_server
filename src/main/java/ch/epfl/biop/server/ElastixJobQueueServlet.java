@@ -138,31 +138,29 @@ public class ElastixJobQueueServlet extends HttpServlet {
                     if (jobsToRemove.size()>0) {
                         log.accept("Number of jobs removed because of timeout : "+jobsToRemove.size());
                     }
-                }
 
-                synchronized (queueReadyToBeProcessed) { // TODO : is it the right lock ?
-                    try {
-                        Thread.sleep(cleanupTimeoutInS * 1000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                    synchronized (queueReadyToBeProcessed) { // TODO : is it the right lock ?
+                        try {
+                            Thread.sleep(cleanupTimeoutInS * 1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+
+                        jobsToRemove = queueReadyToBeProcessed.stream()
+                                .filter(job -> {
+                                    if (job.updateTimeTarget!=null) {
+                                    return job.updateTimeTarget.plusSeconds(cleanupTimeoutInS).isAfter(now);
+                                    } else return false;
+                                })
+                                .collect(Collectors.toList());
+
+                        queueReadyToBeProcessed.removeAll(jobsToRemove);
+
+                        if (jobsToRemove.size()>0) {
+                            log.accept("(Ready) number of jobs removed because of timeout : "+jobsToRemove.size());
+                        }
+
                     }
-
-                    LocalDateTime now = LocalDateTime.now();
-
-                    List<WaitingJob> jobsToRemove = queueReadyToBeProcessed.stream()
-                            .filter(job -> {
-                                if (job.updateTimeTarget!=null) {
-                                return job.updateTimeTarget.plusSeconds(cleanupTimeoutInS).isAfter(now);
-                                } else return false;
-                            })
-                            .collect(Collectors.toList());
-
-                    queueReadyToBeProcessed.removeAll(jobsToRemove);
-
-                    if (jobsToRemove.size()>0) {
-                        log.accept("(Ready) number of jobs removed because of timeout : "+jobsToRemove.size());
-                    }
-
                 }
 
             }

@@ -59,25 +59,73 @@ import java.util.zip.ZipOutputStream;
 import static ch.epfl.biop.server.ServletUtils.copyFileToServer;
 import static ch.epfl.biop.utils.ZipDirectory.zipFile;
 
+/**
+ * Servlet which processes an Elastix task.
+ *
+ * The client has to go through the queueing process handled by {@link ElastixJobQueueServlet}
+ * before becoming a valid request for {@link ElastixServlet}.
+ *
+ * The server checks thanks to its id whether the request is valid (is it in the {@link ElastixJobQueueServlet#queueReadyToBeProcessed} ?)
+ *
+ * The client then sends a MultiPart request which contains:
+ * - the task metadata (optional) as text
+ * - the fixed image (file)
+ * - the moving image (file)
+ * - the elastix transformation parameter file (text file)
+ *
+ * The server executes locally on the server this elastix task and returns the resulting transformation file
+ *
+ * If some metadata where sent, the input images, the metadata and the resulting transformation are
+ * stored in the server as a zip file, provided that {@link RegistrationServerConfig#storeJobsData} is true
+ *
+ * Otherwise all data are deleted.
+ *
+ * Note : all jobs are performed on a single thread
+ *
+ */
+
 public class ElastixServlet extends HttpServlet{
 
     public static Consumer<String> log = (str) -> {};//System.out.println(ElastixServlet.class+":"+str);
 
+    /**
+     * Can be configured in {@link RegistrationServerConfig}
+     */
     public static int maxNumberOfSimultaneousRequests = 1;
 
+    /**
+     * Tags to identity multipart http request parts
+     */
     final public static String TaskMetadata = "taskMetadata";
     final public static String FixedImageTag = "fixedImage";
     final public static String MovingImageTag = "movingImage";
     final public static String InitialTransformTag = "initialTransform";
     final public static String NumberOfTransformsTag = "numberOfTransforms";
 
+    /**
+     * Can be configured in {@link RegistrationServerConfig}
+     */
     public static String elastixJobsFolder = "src/test/resources/tmp/elastix/";
+
+    /**
+     * Can be configured in {@link RegistrationServerConfig}, http timeout
+     */
     public static int timeOut = 50000;
 
+    /**
+     * Several successive transformations can exist in an elastix registration job
+     * this function serves to generate the tags for the multipart request retrieval
+     * @param index of the (potentially) multiple transformation file
+     * @return the tag to identify the http tag
+     */
     final static public String TransformParameterTag(int index) {
         return "transformParam_"+index;
     }
 
+    /**
+     * @param jobsDataLocation param given by the server config
+     * @throws IOException if the temp folder cannot be created
+     */
     public static void setJobsDataLocation(String jobsDataLocation) throws IOException {
         if (jobsDataLocation.endsWith(File.separator)) {
             elastixJobsFolder = jobsDataLocation + "elastix" + File.separator;
@@ -91,23 +139,37 @@ public class ElastixServlet extends HttpServlet{
         }
     }
 
+    /**
+     * Atomic integer to keep track of the number of currently processed tasks
+     */
     static AtomicInteger numberOfCurrentTask = new AtomicInteger(0);
 
     public static int getNumberOfCurrentTasks() {
         return numberOfCurrentTask.get();
     }
 
+    /**
+     * Where the elastix registration happens
+     * @param request client
+     * @param response of the server
+     */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) {
 
+        // Flag which indicates whether the job has been / should be cancelled
         final AtomicBoolean isAlive = new AtomicBoolean(true);
 
+        // Notify that we're processing a task
+        numberOfCurrentTask.getAndIncrement();
+
+        // Not sure whether it's useful to put it into a Runnable...
         Runnable taskToPerform = () -> {
             try {
 
                 if (request.getParameter("id")==null) {
                     log.accept("Registration job has no id - this request will not be processed");
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    numberOfCurrentTask.decrementAndGet();
                     return;
                 }
 
@@ -117,20 +179,22 @@ public class ElastixServlet extends HttpServlet{
                     Optional<ElastixJobQueueServlet.WaitingJob> job = ElastixJobQueueServlet.queueReadyToBeProcessed.stream()
                             .filter(j -> j.jobId == currentJobId).findFirst();
                     if (job.isPresent()) {
+                        // Ok - it's a valid job - let's remove it from the ready queue
                         ElastixJobQueueServlet.queueReadyToBeProcessed.remove(job.get());
                     } else {
-                        log.accept("Job "+currentJobId+" has not been been queued before - this request will not be processed");
+                        log.accept("Job "+currentJobId+" has not been queued before - this request will not be processed");
                         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        numberOfCurrentTask.decrementAndGet();
                         return;
                     }
                 }
 
                 synchronized (ElastixServlet.class) {
                     if (numberOfCurrentTask.get()<maxNumberOfSimultaneousRequests) {
-                        numberOfCurrentTask.getAndIncrement();
                     } else {
                         log.accept("Too many elastix requests in elastix servlet");
                         response.setStatus(503); // Too many requests - server temporarily unavailable - this should not happen with the queueing system however ...
+                        numberOfCurrentTask.decrementAndGet();
                         return;
                     }
                 }
@@ -138,7 +202,7 @@ public class ElastixServlet extends HttpServlet{
                 log.accept("----------- ELASTIX JOB " + currentJobId + " START");
 
                 ElastixTaskSettings settings = new ElastixTaskSettings();
-                settings.singleThread();
+                settings.singleThread(); //
 
                 String taskMetadata = null;
 
@@ -149,29 +213,26 @@ public class ElastixServlet extends HttpServlet{
                 }
 
                 if (taskMetadata!=null) {
-                    System.out.println("Task Metadata = "+taskMetadata);
+                    log.accept("Task Metadata = "+taskMetadata);
                 } else {
-                    System.out.println("No task metadata");
+                    log.accept("No task metadata");
                 }
 
+                // Prepare temp folders
                 if (!new File(elastixJobsFolder, "job_" + currentJobId).exists()) {
                     Files.createDirectory(Paths.get(elastixJobsFolder, "job_" + currentJobId));
                 }
-
                 String currentElastixJobFolder = Paths.get(elastixJobsFolder, "job_" + currentJobId).toString()+File.separator;
-
                 String currentElastixJobFolderInputs = currentElastixJobFolder+"input"+File.separator;
-
                 String currentElastixJobFolderOutputs = currentElastixJobFolder+"output"+File.separator;
-
                 if (!new File(currentElastixJobFolderInputs).exists()) {
                     Files.createDirectory(Paths.get(elastixJobsFolder, "job_" + currentJobId, "input"));
                 }
-
                 if (!new File(currentElastixJobFolderOutputs).exists()) {
                     Files.createDirectory(Paths.get(elastixJobsFolder, "job_" + currentJobId, "output"));
                 }
 
+                // Copy files to server HDD and sets elastix job settings
                 String fImagePath = copyFileToServer(currentElastixJobFolderInputs, request, FixedImageTag, "fixed" );
                 settings.fixedImage(() -> fImagePath);
 
@@ -186,29 +247,37 @@ public class ElastixServlet extends HttpServlet{
                     settings.addInitialTransform(iniTransformPath);
                 }
 
+                // Retrieves the number of transforms in the request - get their number first
                 Part numberOfTransformsPart = request.getPart(NumberOfTransformsTag);
                 String strNTransforms = IOUtils.toString(numberOfTransformsPart.getInputStream(), StandardCharsets.UTF_8.name());
                 Integer numberOfTransforms = new Integer(strNTransforms);
 
+                // Gets all successive transforms and copy to server hdd
                 for (int idxTransform = 0; idxTransform < numberOfTransforms; idxTransform++) {
                     String transformPath = copyFileToServer(currentElastixJobFolderInputs, request, TransformParameterTag(idxTransform), "transform_" + idxTransform);
                     settings.addTransform(() -> transformPath);
                 }
 
+                // Where to store the result
                 String outputFolder = currentElastixJobFolderOutputs;//elastixJobsFolder + "job_" + currentJobId;
                 settings.outFolder(() -> outputFolder);
 
                 ElastixTask elastixTask = new DefaultElastixTask();
                 elastixTask.setSettings(settings);
 
-                if (isAlive.get()) {
+                if (isAlive.get()) { // not cancelled ?
                     try {
-                        elastixTask.run();
-                        if (isAlive.get()) {
+
+                        elastixTask.run(); // DOES the registration thus most of the time is spent there
+
+                        if (isAlive.get()) { // still not cancelled ?
+
                             String sourceFile = outputFolder;
 
+                            // Removes (unnecessary?) log files
                             cleanLogFiles(outputFolder);
 
+                            // Zip response files to send back to the client
                             FileOutputStream fos = new FileOutputStream(currentElastixJobFolder + "res.zip");
                             ZipOutputStream zipOut = new ZipOutputStream(fos);
                             File fileToZip = new File(sourceFile);
@@ -218,9 +287,9 @@ public class ElastixServlet extends HttpServlet{
                             fos.close();
 
                             File fileResZip = new File(currentElastixJobFolder + "res.zip");
-
                             String registrationResultFileName = "registration_result.zip";
 
+                            // Really sends back the result
                             FileInputStream fileInputStream = new FileInputStream(fileResZip);
                             ServletOutputStream responseOutputStream = response.getOutputStream();
                             int bytes;
@@ -230,15 +299,16 @@ public class ElastixServlet extends HttpServlet{
                             responseOutputStream.close();
                             fileInputStream.close();
 
+                            // Response information
                             response.setContentType("application/zip");
                             response.addHeader("Content-Disposition", "attachment; filename=" + registrationResultFileName);
                             response.setContentLength((int) fileResZip.length());
                             response.setStatus(Response.SC_OK);
 
                             // Clean Up : let's remove the output folder because it has already been zipped
-
                             ServletUtils.eraseFolder(outputFolder);
 
+                            // Should we store the job data ?
                             if (!StatusServlet.config.storeJobsData) {
                                 // Server set to not store anything -> just delete the data
                                 ServletUtils.eraseFolder(currentElastixJobFolder);
@@ -250,8 +320,8 @@ public class ElastixServlet extends HttpServlet{
                                 } else {
                                     // We have some metadata : the user agreed to store data
                                     FileUtils.writeStringToFile(new File(currentElastixJobFolderInputs,"metadata.txt"), taskMetadata, Charset.defaultCharset());
-                                    // Zip result folder and delete original result folder
 
+                                    // Zip result folder (factor 2 gained on average)
                                     fos = new FileOutputStream(elastixJobsFolder + "job_"+currentJobId+".zip");
                                     zipOut = new ZipOutputStream(fos);
                                     fileToZip = new File(currentElastixJobFolder);
@@ -260,8 +330,8 @@ public class ElastixServlet extends HttpServlet{
                                     zipOut.close();
                                     fos.close();
 
+                                    // and delete original result folder
                                     ServletUtils.eraseFolder(currentElastixJobFolder);
-
                                 }
                             }
 
@@ -269,6 +339,8 @@ public class ElastixServlet extends HttpServlet{
                             log.accept("Job "+currentJobId+" interrupted");
                             ServletUtils.eraseFolder(currentElastixJobFolder);
                         }
+
+                        // Don't forget to decrement that the number of current processed jobs
                         numberOfCurrentTask.decrementAndGet();
 
                     } catch (Exception e) {
