@@ -32,11 +32,9 @@
  */
 package ch.epfl.biop.wrappers.transformix;
 
-import ch.epfl.biop.server.ElastixServlet;
 import ch.epfl.biop.server.TransformixServlet;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -47,7 +45,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 
 import java.io.*;
-import java.util.function.Supplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -64,9 +61,6 @@ public class RemoteTransformixTask extends TransformixTask {
 
     @Override
     public void run() throws Exception {
-        /*DefaultTransformixTask tt = new DefaultTransformixTask();
-        tt.setSettings(settings);
-        tt.run();*/
 
         int timeout = 50;
         RequestConfig config = RequestConfig.custom()
@@ -96,7 +90,7 @@ public class RemoteTransformixTask extends TransformixTask {
         File zipAns = new File(settings.outputFolderSupplier.get(), "registration_result.zip");
         FileOutputStream fos = new FileOutputStream(zipAns);
 
-        int read = 0;
+        int read;
         byte[] buffer = new byte[32768];
         while( (read = is.read(buffer)) > 0) {
             fos.write(buffer, 0, read);
@@ -105,7 +99,7 @@ public class RemoteTransformixTask extends TransformixTask {
         fos.close();
         is.close();
 
-        System.out.println(settings.outputFolderSupplier.get());
+        //System.out.println(settings.outputFolderSupplier.get());
 
         File destDir = new File(settings.outputFolderSupplier.get());
         ZipInputStream zis = new ZipInputStream(new FileInputStream(zipAns));

@@ -59,9 +59,12 @@ import java.util.zip.ZipInputStream;
 import static ch.epfl.biop.server.RegistrationServer.ELASTIX_PATH;
 import static ch.epfl.biop.server.RegistrationServer.ELASTIX_QUEUE_PATH;
 
+/**
+ * Can process an Elastix task by sending it to a {@link ch.epfl.biop.server.RegistrationServer}
+ */
 public class RemoteElastixTask extends ElastixTask {
 
-    public static Consumer<String> log = (str) -> System.out.println(RemoteElastixTask.class+":"+str);
+    public static Consumer<String> log = (str) -> {};//System.out.println(RemoteElastixTask.class+":"+str);
 
     String serverUrl;
     String serverUrlQueue;
@@ -97,9 +100,10 @@ public class RemoteElastixTask extends ElastixTask {
                         .build();
 
         // Queuing job
-        long jobId = 1;
+        long jobId;
 
-        HttpPost enqueueJobRequest = new HttpPost(serverUrlQueue+"?id=-1");
+        // id = -1 means that the client wants to enter the queue
+        HttpPost enqueueJobRequest = new HttpPost(serverUrlQueue +"?id=-1");
 
         HttpResponse response;
         try {
@@ -110,6 +114,7 @@ public class RemoteElastixTask extends ElastixTask {
         }
 
         if (response.getStatusLine().toString().equals("HTTP/1.1 503 Service Unavailable")) {
+            // Queue too big client rejected directly
             throw new HttpException("Registration server overload.");
         }
 
@@ -122,8 +127,9 @@ public class RemoteElastixTask extends ElastixTask {
 
         jobId = job.jobId;
 
-        enqueueJobRequest = new HttpPost(serverUrlQueue+"?id="+job.jobId);
+        enqueueJobRequest = new HttpPost(serverUrlQueue+"?id="+job.jobId); // We know the id the server will thus recognize the task
 
+        // Sends as many queue update requests as necessary in order to be allowed to process the request
         while (job.waitingTimeInMs!=0) {
             try {
                 Thread.sleep(job.waitingTimeInMs);
@@ -142,36 +148,43 @@ public class RemoteElastixTask extends ElastixTask {
             response.getEntity().getContent().close(); // necessary ?
 
             log.accept("Enqueue response : "+enqueueResponse);
-            job = new Gson().fromJson(enqueueResponse, ElastixJobQueueServlet.WaitingJob.class);
+            job = new Gson().fromJson(enqueueResponse, ElastixJobQueueServlet.WaitingJob.class); // updates the waiting time
         }
 
+        // Waiting time = 0 meaning we can start the really elastix registration
         HttpPost httppost = new HttpPost(serverUrl+"?id="+jobId);
 
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
         builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
 
         if ((settings.taskInfo!=null)&&(!settings.taskInfo.trim().equals(""))) {
-            // There is some data -> the job will be potentially be saved on the server side
+            // There is some data the job will potentially be saved on the server side
             builder.addTextBody(ElastixServlet.TaskMetadata, settings.taskInfo, ContentType.DEFAULT_TEXT);
         }
 
+        // Send fixed image
         File fixedImageFile = new File(settings.fixedImagePathSupplier.get());
         FileBody fixedImageBody = new FileBody(fixedImageFile, ContentType.DEFAULT_BINARY);
         builder.addPart(ElastixServlet.FixedImageTag, fixedImageBody);
 
+        // Send moving image
         File movingImageFile = new File(settings.movingImagePathSupplier.get());
         FileBody movingImageBody = new FileBody(movingImageFile, ContentType.DEFAULT_BINARY);
         builder.addPart(ElastixServlet.MovingImageTag, movingImageBody);
 
+        // Send initial transformation file, if any
         if (settings.initialTransformFilePath!=null) {
             File initialTransformFile = new File(settings.initialTransformFilePath);
             FileBody initialTransformationBody = new FileBody(initialTransformFile, ContentType.DEFAULT_TEXT);
             builder.addPart(ElastixServlet.InitialTransformTag, initialTransformationBody);
         }
 
+        // Send number of transformations
         builder.addTextBody(ElastixServlet.NumberOfTransformsTag, new Integer(settings.transformationParameterPathSupplier.size()).toString());
 
         int indexTransformationParameter = 0;
+
+        // Sends all transformation files
         for (Supplier<String> s : settings.transformationParameterPathSupplier) {
             File transformationParameterFile = new File(s.get());
             FileBody transformationParameterBody = new FileBody(transformationParameterFile, ContentType.DEFAULT_TEXT);
@@ -190,6 +203,7 @@ public class RemoteElastixTask extends ElastixTask {
             e.printStackTrace();
             throw new HttpException("Server registration failed with error message : "+e.getMessage());
         }
+
         log.accept(">>> Client received response status "+response.getStatusLine());
 
         if (response.getStatusLine().toString().equals("HTTP/1.1 200 OK")) {
@@ -197,6 +211,7 @@ public class RemoteElastixTask extends ElastixTask {
             log.accept(">>> Client received result of registration request");
 
             InputStream is = response.getEntity().getContent();
+
             File zipAns = new File(settings.outputFolderSupplier.get(), "registration_result.zip");
             FileOutputStream fos = new FileOutputStream(zipAns);
 
@@ -212,6 +227,7 @@ public class RemoteElastixTask extends ElastixTask {
             log.accept(">>> Client received all of registration request");
             log.accept(settings.outputFolderSupplier.get());
 
+            // Unzips response
             File destDir = new File(settings.outputFolderSupplier.get());
             ZipInputStream zis = new ZipInputStream(new FileInputStream(zipAns));
             ZipEntry zipEntry = zis.getNextEntry();
@@ -260,4 +276,5 @@ public class RemoteElastixTask extends ElastixTask {
 
         return destFile;
     }
+
 }
