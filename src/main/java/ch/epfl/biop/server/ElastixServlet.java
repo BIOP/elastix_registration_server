@@ -237,16 +237,16 @@ public class ElastixServlet extends HttpServlet{
 
                             // Clean Up : let's remove the output folder because it has already been zipped
 
-                            eraseFolder(outputFolder);
+                            ServletUtils.eraseFolder(outputFolder);
 
                             if (!StatusServlet.config.storeJobsData) {
                                 // Server set to not store anything -> just delete the data
-                                eraseFolder(currentElastixJobFolder);
+                                ServletUtils.eraseFolder(currentElastixJobFolder);
                             } else {
                                 // Server can store some user data, if the user agrees
                                 if (taskMetadata == null) {
                                     // No metadata = no user agreement to store job, erase data
-                                    eraseFolder(currentElastixJobFolder);
+                                    ServletUtils.eraseFolder(currentElastixJobFolder);
                                 } else {
                                     // We have some metadata : the user agreed to store data
                                     FileUtils.writeStringToFile(new File(currentElastixJobFolderInputs,"metadata.txt"), taskMetadata, Charset.defaultCharset());
@@ -260,14 +260,14 @@ public class ElastixServlet extends HttpServlet{
                                     zipOut.close();
                                     fos.close();
 
-                                    eraseFolder(currentElastixJobFolder);
+                                    ServletUtils.eraseFolder(currentElastixJobFolder);
 
                                 }
                             }
 
                         } else {
                             log.accept("Job "+currentJobId+" interrupted");
-                            eraseFolder(currentElastixJobFolder);
+                            ServletUtils.eraseFolder(currentElastixJobFolder);
                         }
                         numberOfCurrentTask.decrementAndGet();
 
@@ -276,12 +276,12 @@ public class ElastixServlet extends HttpServlet{
                         log.accept("Error during elastix request");
                         response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
                         e.printStackTrace();
-                        eraseFolder(currentElastixJobFolder);
+                        ServletUtils.eraseFolder(currentElastixJobFolder);
                     }
                 } else {
                     log.accept("Job "+currentJobId+" interrupted");
                     numberOfCurrentTask.decrementAndGet();
-                    eraseFolder(currentElastixJobFolder);
+                    ServletUtils.eraseFolder(currentElastixJobFolder);
                 }
             } catch (IOException|ServletException  e) {
                 response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
@@ -313,14 +313,6 @@ public class ElastixServlet extends HttpServlet{
             if (f.getName().startsWith("elastix")||f.getName().startsWith("IterationInfo")) {
                 f.delete();
             }
-        }
-    }
-
-    private static void eraseFolder(String currentElastixJobFolder) {
-        try {
-            FileUtils.deleteDirectory(new File(currentElastixJobFolder));
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 

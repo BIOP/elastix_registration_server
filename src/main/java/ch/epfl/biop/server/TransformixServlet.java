@@ -50,12 +50,16 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.zip.ZipOutputStream;
 
 import static ch.epfl.biop.server.ServletUtils.copyFileToServer;
 import static ch.epfl.biop.utils.ZipDirectory.zipFile;
 
 public class TransformixServlet extends HttpServlet {
+
+
+    public static Consumer<String> log = (str) -> {};//System.out.println(TransformixServlet.class+":"+str);
 
     final public static String InputPtsFileTag = "InputPts";
     final public static String TransformFilesTag = "transformFiles";
@@ -99,21 +103,36 @@ public class TransformixServlet extends HttpServlet {
 
         new Thread(() -> {
             try {
-                System.out.println("Job " + currentJobId + " started");
-                System.out.println("----------- STARTING TRANSFORMIX JOB " + currentJobId);
+                log.accept("Job " + currentJobId + " started");
+                log.accept("----------- STARTING TRANSFORMIX JOB " + currentJobId);
                 numberOfCurrentTask.getAndIncrement();
 
                 TransformixTaskSettings settings = new TransformixTaskSettings();
 
-                String ptsPath = copyFileToServer(transformixJobsFolder, request, InputPtsFileTag, "pts_" + currentJobId);
-                settings.pts(() -> ptsPath);
-                String mImagePath = copyFileToServer(transformixJobsFolder, request, TransformFilesTag, "transforms_" + currentJobId);
-                settings.transform(() -> mImagePath);
-
                 if (!new File(transformixJobsFolder, "job_" + currentJobId).exists()) {
                     Files.createDirectory(Paths.get(transformixJobsFolder, "job_" + currentJobId));
                 }
-                String outputFolder = transformixJobsFolder + "job_" + currentJobId;
+
+                /*if (!new File(transformixJobsFolder, "job_" + currentJobId).exists()) {
+                    Files.createDirectory(Paths.get(currentTransformixJobFolder, "job_" + currentJobId));
+                }*/
+
+                String currentTransformixJobFolder = Paths.get(transformixJobsFolder, "job_" + currentJobId).toString()+File.separator;
+
+                String currentTransformixJobFolderOutputs = currentTransformixJobFolder+"output"+File.separator;
+
+                if (!new File(currentTransformixJobFolderOutputs).exists()) {
+                    Files.createDirectory(Paths.get(currentTransformixJobFolder,  "output"));
+                }
+
+                String ptsPath = copyFileToServer(currentTransformixJobFolder, request, InputPtsFileTag, "pts");
+                settings.pts(() -> ptsPath);
+
+                String mImagePath = copyFileToServer(currentTransformixJobFolder, request, TransformFilesTag, "transforms");
+                settings.transform(() -> mImagePath);
+
+                String outputFolder = currentTransformixJobFolderOutputs;
+
                 settings.outFolder(() -> outputFolder);
 
                 TransformixTask transformixTask = new DefaultTransformixTask();
@@ -122,7 +141,7 @@ public class TransformixServlet extends HttpServlet {
                 try {
                     transformixTask.run();
                     String sourceFile = outputFolder;
-                    FileOutputStream fos = new FileOutputStream(transformixJobsFolder + "res_" + currentJobId + ".zip");
+                    FileOutputStream fos = new FileOutputStream(currentTransformixJobFolder + "res.zip");
                     ZipOutputStream zipOut = new ZipOutputStream(fos);
                     File fileToZip = new File(sourceFile);
 
@@ -130,7 +149,7 @@ public class TransformixServlet extends HttpServlet {
                     zipOut.close();
                     fos.close();
 
-                    File fileResZip = new File (transformixJobsFolder + "res_" + currentJobId + ".zip");
+                    File fileResZip = new File (currentTransformixJobFolder + "res.zip");
 
                     String registrationResultFileName = "transformix_result.zip";
 
@@ -145,20 +164,21 @@ public class TransformixServlet extends HttpServlet {
                         responseOutputStream.write(bytes);
                     }
 
-                    System.out.println("----------- ENDING JOB " + currentJobId);
+                    log.accept("----------- ENDING TRANSFORMIX JOB " + currentJobId);
                     responseOutputStream.close();
                     fileInputStream.close();
                     response.setStatus(Response.SC_OK);
                     async.complete();
                     numberOfCurrentTask.decrementAndGet();
+                    ServletUtils.eraseFolder(currentTransformixJobFolder);
 
                 } catch (Exception e) {
                     e.printStackTrace();
                     response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
                     async.complete();
                     numberOfCurrentTask.decrementAndGet();
+                    ServletUtils.eraseFolder(currentTransformixJobFolder);
                 }
-
 
             } catch (IOException|ServletException e) {
                 e.printStackTrace();

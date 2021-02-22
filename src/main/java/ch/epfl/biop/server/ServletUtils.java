@@ -32,11 +32,13 @@
  */
 package ch.epfl.biop.server;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -54,5 +56,13 @@ public class ServletUtils {
         Files.copy(part.getInputStream(), Paths.get(pathFileOut),
                 StandardCopyOption.REPLACE_EXISTING);
         return pathFileOut;
+    }
+
+    public static void eraseFolder(String currentElastixJobFolder) {
+        try {
+            FileUtils.deleteDirectory(new File(currentElastixJobFolder));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
