@@ -34,11 +34,10 @@ package ch.epfl.biop.server;
 
 import ch.epfl.biop.wrappers.elastix.Elastix;
 import ch.epfl.biop.wrappers.transformix.Transformix;
-import org.eclipse.jetty.server.Connector;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.scijava.util.VersionUtils;
 
@@ -72,7 +71,6 @@ public class RegistrationServer {
 
         System.out.println("--- Settings elastix servlet max number of simultaneous requests " + config.maxNumberOfSimultaneousRequests);
         ElastixServlet.maxNumberOfSimultaneousRequests = config.maxNumberOfSimultaneousRequests;
-        //TransformixServlet.maxNumberOfSimultaneousRequests = config.maxNumberOfSimultaneousRequests;
 
         try {
             System.out.print("--- Settings jobs data location for elastix : ");
@@ -110,9 +108,16 @@ public class RegistrationServer {
         QueuedThreadPool threadPool = new QueuedThreadPool(maxThreads, minThreads, idleTimeout);
 
         server = new Server(threadPool);
+
+        // ---- HTTP
+
         ServerConnector connector = new ServerConnector(server);
         connector.setPort(localPort);
+
         server.setConnectors(new Connector[] { connector });
+
+        // ---- HTTP End
+
         server.setHandler(context);
 
         ServletHolder shElastix = context.addServlet(ElastixServlet.class, ELASTIX_PATH);
