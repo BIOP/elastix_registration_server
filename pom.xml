@@ -11,7 +11,7 @@
 
     <groupId>ch.epfl.biop</groupId>
     <artifactId>elastix_registration_server</artifactId>
-    <version>0.1.3-SNAPSHOT</version>
+    <version>0.1.4-SNAPSHOT</version>
 
     <name>Elastix registration server</name>
     <description>Server to launch elastix and transformix tasks</description>
