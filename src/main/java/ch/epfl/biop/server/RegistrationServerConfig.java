@@ -81,7 +81,7 @@ public class RegistrationServerConfig {
     /**
      * Estimated maximum time allowed for the queue.
      *
-     * If elastixTaskEstimatedDurationInMs/1000 * number of tasks in the queue > maxQueueEstimatedWaitingTimeInS
+     * If elastixTaskEstimatedDurationInMs/1000 * number of tasks in the queue is strictly superior to maxQueueEstimatedWaitingTimeInS
      *
      * Then requests are ignored with a 503 Service Unavailable error message
      */
