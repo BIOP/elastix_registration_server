@@ -8,6 +8,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -108,6 +109,11 @@ public class ElastixJobQueueServlet extends HttpServlet {
      */
     public static Thread wall_e;
 
+    /**
+     * Keeps track of the number of requests which have been rejected because of a full queue
+     */
+    public final static AtomicInteger numberOfRejectedRequestsFullQueue = new AtomicInteger(0);
+
     static {
         // statically launch the cleaner thread
         wall_e = new Thread(() -> {
@@ -120,15 +126,16 @@ public class ElastixJobQueueServlet extends HttpServlet {
 
                 synchronized (queue) { // locks on the queue
 
-                    LocalDateTime now = LocalDateTime.now();
+                    final LocalDateTime now = LocalDateTime.now();
 
                     List<WaitingJob> jobsToRemove = queue.stream()
                          .filter(job -> {
                              if (job.updateTimeTarget!=null) { // If this field is not initialized, it's an early job
-                                 //log.accept("Clean check : "+job.updateTimeTarget);
-                                 //log.accept("Job should be updated before "+job.updateTimeTarget.plusSeconds(cleanupTimeoutInS));
-                                 //log.accept("And it is "+now);
-                                 return job.updateTimeTarget.plusSeconds(cleanupTimeoutInS).isBefore(now);
+                                 LocalDateTime maxDateForUpdate = job.updateTimeTarget.plusSeconds(cleanupTimeoutInS);
+                                 log.accept("Clean check job[" + job.jobId + "]: " + job.updateTimeTarget);
+                                 log.accept("Job should be updated before " + maxDateForUpdate);
+                                 log.accept("And it is " + now);
+                                 return !(now.isBefore(maxDateForUpdate));
                              } else return false;
                          }).collect(Collectors.toList());
 
@@ -254,12 +261,11 @@ public class ElastixJobQueueServlet extends HttpServlet {
                 // it sends a request every 5 per cent of the estimated task duration
                 int waitingTimeInMs = (int) ((numberOfTasksWaiting-0.95)*estimatedElastixJobProcessingTimeInMs);
 
-                wjob.waitingTimeInMs = waitingTimeInMs;
-
                 // If the estimated woiting is above the threshold : 503 error code sent to the client
-                if (wjob.waitingTimeInMs/1000>maxWaitingQueueTimeInS) {
+                if (waitingTimeInMs/1000>maxWaitingQueueTimeInS) {
                     log.accept("Too many elastix job requests in elastix queue servlet - expected time exceed "+maxWaitingQueueTimeInS+" seconds");
                     queue.remove(wjob);
+                    numberOfRejectedRequestsFullQueue.incrementAndGet();
                     response.setStatus(503); // Too many requests - server temporarily unavailable
                     return;
                 }
@@ -267,6 +273,8 @@ public class ElastixJobQueueServlet extends HttpServlet {
                 // We don't want the client to wait too long before asking for a queue state update
                 // see maxDelayBetweenQueueUpdateRequestInS in RegistrationConfigClass for an explanation
                 waitingTimeInMs = Math.min(waitingTimeInMs, maxDelayBetweenQueueUpdateRequestInS*1000);
+
+                wjob.waitingTimeInMs = waitingTimeInMs;
 
                 log.accept("Update update time");
                 wjob.updateTimeTarget = LocalDateTime.now().plusSeconds((waitingTimeInMs/1000)+1);

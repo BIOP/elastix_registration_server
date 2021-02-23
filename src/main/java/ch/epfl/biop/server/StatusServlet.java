@@ -52,6 +52,8 @@ public class StatusServlet extends HttpServlet {
 
         int estimatedQueueProcessingTimeInS = ElastixJobQueueServlet.getQueueSize()*StatusServlet.config.elastixTaskEstimatedDurationInMs/1000;
 
+        int numberOfRejectedRequestsBecauseOfFullQueue = ElastixJobQueueServlet.numberOfRejectedRequestsFullQueue.get();
+
         RegistrationServerConfig config = StatusServlet.config;
     }
 }

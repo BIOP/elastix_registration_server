@@ -149,6 +149,9 @@ public class RemoteElastixTask extends ElastixTask {
 
             log.accept("Enqueue response : "+enqueueResponse);
             job = new Gson().fromJson(enqueueResponse, ElastixJobQueueServlet.WaitingJob.class); // updates the waiting time
+            if (job == null) {
+                throw new Exception("The registration server did not return any update on the queue of registration jobs");
+            }
         }
 
         // Waiting time = 0 meaning we can start the really elastix registration
