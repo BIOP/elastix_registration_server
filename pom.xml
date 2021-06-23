@@ -78,7 +78,6 @@
         <connection>scm:git:git://github.com/NicoKiaru/elastix_registration_server</connection>
         <developerConnection>scm:git:git@github.com:NicoKiaru/elastix_registration_server</developerConnection>
         <url>https://github.com/NicoKiaru/elastix_registration_server</url>
-      <tag>elastix_registration_server-0.1.3</tag>
   </scm>
 
     <issueManagement>
@@ -110,7 +109,7 @@
         <commons-io.version>2.7</commons-io.version>
         <httpclient.version>4.5.3</httpclient.version>
         <commons-text.version>1.6</commons-text.version>
-        <ijl-utilities-wrappers.version>0.3.17</ijl-utilities-wrappers.version>
+        <ijl-utilities-wrappers.version>0.3.20</ijl-utilities-wrappers.version>
         <gson.version>2.8.5</gson.version>
 
         <!-- NB: Deploy releases to the SciJava Maven repository. -->
@@ -181,7 +180,7 @@
     </dependencies>
 
     <!-- UNCOMMENT TO build FAT JAR (convenient for server side ) -->
-    <!-- <build>
+    <!--<build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -243,6 +242,6 @@
                 </executions>
             </plugin>
         </plugins>
-    </build> -->
+    </build>-->
 
 </project>

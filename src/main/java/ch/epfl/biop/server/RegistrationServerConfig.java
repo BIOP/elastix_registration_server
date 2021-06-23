@@ -61,7 +61,12 @@ public class RegistrationServerConfig {
     /**
      * Http request timeout
      */
-    public int requestTimeOutInMs = 50000;
+    public int requestTimeOutInMs = 80000;
+
+    /**
+     * Http request timeout
+     */
+    public int nThreadsPerElastixTask = 4;
 
     /**
      * Estimated duration for processing a single elastix registration task
@@ -76,7 +81,7 @@ public class RegistrationServerConfig {
      * reduces the task estimated duration because they can be processed in parallel
      *
      */
-    public int elastixTaskEstimatedDurationInMs = 3000;
+    public int elastixTaskEstimatedDurationInMs = 5000;
 
     /**
      * Estimated maximum time allowed for the queue.
@@ -109,7 +114,7 @@ public class RegistrationServerConfig {
      * will wait at maximum maxDelayBetweenQueueUpdateRequestInS before being being informed that the queue
      * is empty. The default value, 10s - will avoid 90s of server idle time.
      */
-    public int maxDelayBetweenQueueUpdateRequestInS = 10;
+    public int maxDelayBetweenQueueUpdateRequestInS = 5;
 
     /**
      * Maximum number of simultaneous requests being processed by the server.

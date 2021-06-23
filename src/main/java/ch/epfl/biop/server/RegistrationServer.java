@@ -78,6 +78,8 @@ public class RegistrationServer {
         ElastixServlet.timeOut = config.requestTimeOutInMs;
         TransformixServlet.timeOut = config.requestTimeOutInMs;
 
+        System.out.println("--- Settings Elastix thread per task number " + config.nThreadsPerElastixTask);
+        ElastixServlet.nThreadPerTask = config.nThreadsPerElastixTask;
 
         System.out.println("--- Settings elastix servlet max number of simultaneous requests " + config.maxNumberOfSimultaneousRequests);
         ElastixServlet.maxNumberOfSimultaneousRequests = config.maxNumberOfSimultaneousRequests;

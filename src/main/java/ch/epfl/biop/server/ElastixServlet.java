@@ -49,6 +49,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -85,12 +87,17 @@ import static ch.epfl.biop.server.ServletUtils.copyFileToServer;
 
 public class ElastixServlet extends HttpServlet{
 
-    public static Consumer<String> log = (str) -> {};//System.out.println(ElastixServlet.class+":"+str);
+    public static Consumer<String> log = (str) -> System.out.println(ElastixServlet.class+":"+str);
 
     /**
      * Can be configured in {@link RegistrationServerConfig}
      */
     public static int maxNumberOfSimultaneousRequests = 1;
+
+    /**
+     * Can be configured in {@link RegistrationServerConfig}
+     */
+    public static int nThreadPerTask = 1;
 
     /**
      * Tags to identity multipart http request parts
@@ -170,6 +177,8 @@ public class ElastixServlet extends HttpServlet{
         // Not sure whether it's useful to put it into a Runnable...
         Runnable taskToPerform = () -> {
             try {
+
+                Instant start = Instant.now();
 
                 if (request.getParameter("id")==null) {
                     log.accept("Registration job has no id - this request will not be processed");
@@ -267,6 +276,7 @@ public class ElastixServlet extends HttpServlet{
                 settings.outFolder(() -> outputFolder);
 
                 ElastixTask elastixTask = new DefaultElastixTask();
+                settings.nThreads(nThreadPerTask);
                 elastixTask.setSettings(settings);
 
                 if (isAlive.get()) { // not cancelled ?
@@ -338,7 +348,8 @@ public class ElastixServlet extends HttpServlet{
                                     ServletUtils.eraseFolder(currentElastixJobFolder);
                                 }
                             }
-
+                            Instant end = Instant.now();
+                            log.accept("Job "+currentJobId+" done in "+ Duration.between(start,end).getSeconds()+" s.");
                         } else {
                             log.accept("Job "+currentJobId+" interrupted");
                             ServletUtils.eraseFolder(currentElastixJobFolder);
@@ -361,6 +372,7 @@ public class ElastixServlet extends HttpServlet{
                 }
             } catch (IOException|ServletException  e) {
                 response.setStatus(Response.SC_INTERNAL_SERVER_ERROR);
+                log.accept("Servlet Exception "+e.getMessage());
                 numberOfCurrentTask.decrementAndGet();
             }
         };
@@ -370,7 +382,7 @@ public class ElastixServlet extends HttpServlet{
 
         try {
             future.get(timeOut, TimeUnit.MILLISECONDS);
-            log.accept("Completed successfully");
+            log.accept("Task completed successfully");
         } catch (InterruptedException | ExecutionException e) {
             isAlive.set(false);
         } catch (TimeoutException e) {

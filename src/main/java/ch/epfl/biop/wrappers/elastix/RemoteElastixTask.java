@@ -64,10 +64,12 @@ import static ch.epfl.biop.server.RegistrationServer.ELASTIX_QUEUE_PATH;
  */
 public class RemoteElastixTask extends ElastixTask {
 
-    public static Consumer<String> log = (str) -> {};//System.out.println(RemoteElastixTask.class+":"+str);
+    public static Consumer<String> log = (str) -> System.out.println(RemoteElastixTask.class+":"+str);
 
     String serverUrl;
     String serverUrlQueue;
+
+    public static int timeOutInMs = 100000;
 
     public RemoteElastixTask(String serverUrl) {
         this.serverUrl = serverUrl+ELASTIX_PATH;
@@ -76,11 +78,11 @@ public class RemoteElastixTask extends ElastixTask {
 
     public void run() throws Exception {
 
-        int timeoutMs = 50000;
+        //int timeoutMs = 50000;
         RequestConfig config = RequestConfig.custom()
-                .setConnectTimeout(timeoutMs)
-                .setConnectionRequestTimeout(timeoutMs)
-                .setSocketTimeout(timeoutMs).build();
+                .setConnectTimeout(timeOutInMs)
+                .setConnectionRequestTimeout(timeOutInMs)
+                .setSocketTimeout(timeOutInMs).build();
 
         CloseableHttpClient httpclient =
                 HttpClientBuilder
