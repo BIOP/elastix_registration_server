@@ -11,7 +11,7 @@
 
     <groupId>ch.epfl.biop</groupId>
     <artifactId>elastix_registration_server</artifactId>
-    <version>0.1.4-SNAPSHOT</version>
+    <version>0.1.5-SNAPSHOT</version>
 
     <name>Elastix registration server</name>
     <description>Server to launch elastix and transformix tasks</description>
@@ -78,6 +78,7 @@
         <connection>scm:git:git://github.com/NicoKiaru/elastix_registration_server</connection>
         <developerConnection>scm:git:git@github.com:NicoKiaru/elastix_registration_server</developerConnection>
         <url>https://github.com/NicoKiaru/elastix_registration_server</url>
+    <tag>HEAD</tag>
   </scm>
 
     <issueManagement>
