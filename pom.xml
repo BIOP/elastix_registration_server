@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.scijava</groupId>
         <artifactId>pom-scijava</artifactId>
-        <version>30.0.0</version>
+        <version>31.1.0</version>
         <relativePath />
     </parent>
 
@@ -118,6 +118,18 @@
     </properties>
 
     <dependencies>
+
+        <dependency>
+            <groupId>net.imagej</groupId>
+            <artifactId>imagej-legacy</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>log4j</groupId> <!-- Exclude Project-D from Project-B -->
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
@@ -181,7 +193,7 @@
     </dependencies>
 
     <!-- UNCOMMENT TO build FAT JAR (convenient for server side ) -->
-    <!--<build>
+    <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -243,6 +255,6 @@
                 </executions>
             </plugin>
         </plugins>
-    </build>-->
+    </build>
 
 </project>
